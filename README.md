@@ -31,6 +31,7 @@ DataInsight Agent 是一个基于 RAG 与 Tool Calling 的智能数据分析助�
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload
+```
 
 ## 2026-04-27 更新
 
