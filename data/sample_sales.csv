@@ -1,0 +1,5 @@
+date,region,product,sales,profit
+2026-04-01,East,A,120,30
+2026-04-02,West,B,200,50
+2026-04-03,East,A,,20
+2026-04-04,North,C,150,40
