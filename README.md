@@ -31,3 +31,23 @@ DataInsight Agent 是一个基于 RAG 与 Tool Calling 的智能数据分析助�
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload
+
+## 2026-04-27 更新
+
+今日完成 CSV 数据概览模块。
+
+### 新增功能
+
+- 新增 `analyze_csv(file_path: str)` 函数
+- 支持读取本地 CSV 文件
+- 返回数据集基础信息：
+  - 行数 rows
+  - 列数 columns
+  - 字段名 column_names
+  - 字段类型 dtypes
+  - 缺失值统计 missing_values
+  - 数值列基础统计 numeric_summary
+- 新增 FastAPI 接口：
+
+```http
+GET /analyze-csv?file_path=data/sample_sales.csv
