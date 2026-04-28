@@ -52,3 +52,16 @@ uvicorn app.main:app --reload
 
 ```http
 GET /analyze-csv?file_path=data/sample_sales.csv
+```
+
+## 2026-04-28 项目进度：CSV 上传与数据画像 API
+
+### 今日目标
+
+在前两天已完成项目基础结构、FastAPI 后端服务和 `data_profile.py` 数据画像模块的基础上，今日目标是将数据画像能力接入 FastAPI，形成第一个可通过 API 调用的核心功能。
+
+本日重点不是新增复杂 Agent 或 RAG 功能，而是先完成一个基础业务闭环：
+
+```text
+上传 CSV 文件 → FastAPI 接收文件 → pandas 读取数据 → 调用数据画像模块 → 返回 JSON 分析结果
+```
