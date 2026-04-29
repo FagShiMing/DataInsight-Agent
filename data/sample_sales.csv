@@ -1,5 +1,6 @@
-name,age,income,city
-Alice,23,5000,Beijing
-Bob,30,8000,Shanghai
-Cathy,,7000,Hangzhou
-David,28,,Beijing
+date,product,region,sales,profit
+2026-04-01,A,济南,1200,300
+2026-04-02,B,杭州,1800,450
+2026-04-03,A,济南,1500,380
+2026-04-04,C,上海,,500
+2026-04-05,B,杭州,2100,620
