@@ -7,12 +7,19 @@ from scripts.compare_eval_versions import (
 )
 
 
-def _case_result(case_id, expected, before_or_after_actual, correct, category):
+def _case_result(
+    case_id,
+    expected,
+    before_or_after_actual,
+    correct,
+    category,
+    subcategory="regression_core",
+):
     return {
         "id": case_id,
         "question": f"question {case_id}",
         "category": category,
-        "subcategory": "regression_core",
+        "subcategory": subcategory,
         "expected_tool": expected,
         "actual_tool": before_or_after_actual,
         "correct": correct,
@@ -24,13 +31,24 @@ def _result(case_results):
     correct = sum(1 for case in case_results if case["correct"])
     total = len(case_results)
     category_metrics = {}
+    subcategory_metrics = {}
     for case in case_results:
         category = case["category"]
         category_metrics.setdefault(category, {"total": 0, "correct": 0, "accuracy": 0.0})
         category_metrics[category]["total"] += 1
         if case["correct"]:
             category_metrics[category]["correct"] += 1
+        subcategory = case["subcategory"]
+        subcategory_metrics.setdefault(
+            subcategory,
+            {"total": 0, "correct": 0, "accuracy": 0.0},
+        )
+        subcategory_metrics[subcategory]["total"] += 1
+        if case["correct"]:
+            subcategory_metrics[subcategory]["correct"] += 1
     for metric in category_metrics.values():
+        metric["accuracy"] = round(metric["correct"] / metric["total"], 4)
+    for metric in subcategory_metrics.values():
         metric["accuracy"] = round(metric["correct"] / metric["total"], 4)
 
     return {
@@ -39,6 +57,7 @@ def _result(case_results):
         "correct": correct,
         "accuracy": round(correct / total, 4),
         "category_metrics": category_metrics,
+        "subcategory_metrics": subcategory_metrics,
         "failure_analysis": {},
         "failed_cases": [case for case in case_results if not case["correct"]],
         "case_results": case_results,
@@ -78,6 +97,7 @@ def test_compare_eval_results_calculates_delta_and_changed_cases():
                 "answer_data_question",
                 False,
                 "report_generation",
+                "report_vs_summary",
             ),
             _case_result(
                 "case_002",
@@ -85,6 +105,7 @@ def test_compare_eval_results_calculates_delta_and_changed_cases():
                 "numeric_summary",
                 True,
                 "numeric_summary",
+                "numeric_vs_business_question",
             ),
             _case_result(
                 "case_003",
@@ -92,6 +113,7 @@ def test_compare_eval_results_calculates_delta_and_changed_cases():
                 "missing_value_analysis",
                 True,
                 "missing_value",
+                "missing_vs_qa",
             ),
         ]
     )
@@ -103,6 +125,7 @@ def test_compare_eval_results_calculates_delta_and_changed_cases():
                 "generate_report",
                 True,
                 "report_generation",
+                "report_vs_summary",
             ),
             _case_result(
                 "case_002",
@@ -110,6 +133,7 @@ def test_compare_eval_results_calculates_delta_and_changed_cases():
                 "answer_data_question",
                 False,
                 "numeric_summary",
+                "numeric_vs_business_question",
             ),
             _case_result(
                 "case_003",
@@ -117,6 +141,7 @@ def test_compare_eval_results_calculates_delta_and_changed_cases():
                 "missing_value_analysis",
                 True,
                 "missing_value",
+                "missing_vs_qa",
             ),
         ]
     )
@@ -127,10 +152,43 @@ def test_compare_eval_results_calculates_delta_and_changed_cases():
     assert report["delta"]["accuracy"] == 0.0
     assert report["category_delta"]["report_generation"]["delta"] == 1.0
     assert report["category_delta"]["numeric_summary"]["delta"] == -1.0
+    assert report["subcategory_delta"]["report_vs_summary"]["delta"] == 1.0
+    assert report["subcategory_delta"]["numeric_vs_business_question"]["delta"] == -1.0
     assert len(report["improved_cases"]) == 1
     assert report["improved_cases"][0]["id"] == "case_001"
     assert len(report["regressed_cases"]) == 1
     assert report["regressed_cases"][0]["id"] == "case_002"
+
+
+def test_compare_eval_results_handles_missing_subcategory_metrics():
+    before = _result(
+        [
+            _case_result(
+                "case_001",
+                "generate_report",
+                "answer_data_question",
+                False,
+                "report_generation",
+            )
+        ]
+    )
+    after = _result(
+        [
+            _case_result(
+                "case_001",
+                "generate_report",
+                "generate_report",
+                True,
+                "report_generation",
+            )
+        ]
+    )
+    before.pop("subcategory_metrics")
+    after.pop("subcategory_metrics")
+
+    report = compare_eval_results(before, after, "before.json", "after.json")
+
+    assert report["subcategory_delta"] == {}
 
 
 def test_compare_eval_results_rejects_mismatched_case_ids():

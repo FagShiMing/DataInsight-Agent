@@ -95,72 +95,219 @@ def _extract_csv_path(question: str) -> str | None:
     return None
 
 
+def _contains_any(text: str, keywords: list[str]) -> bool:
+    return any(keyword in text for keyword in keywords)
+
+
+REPORT_NEGATION_KEYWORDS = [
+    "不要写报告",
+    "先别写报告",
+    "不用生成报告",
+    "不要生成报告",
+    "暂时不要报告",
+    "不要报告",
+    "不要汇报材料",
+    "不是要报告",
+    "不是要正式报告",
+]
+
+REPORT_KEYWORDS = [
+    "报告",
+    "markdown",
+    "Markdown",
+    "发给老板",
+    "给老板看",
+    "汇报",
+    "汇报稿",
+    "汇报材料",
+    "文档",
+    "结论报告",
+    "分析总结",
+    "数据分析总结",
+    "复盘",
+    "周报",
+    "生成一份",
+    "分析材料",
+    "发出去",
+    "正式分析",
+    "正式点的分析结论",
+    "交付材料",
+    "组织成报告",
+    "输出成文档",
+]
+
+MISSING_KEYWORDS = [
+    "缺失",
+    "空值",
+    "null",
+    "NULL",
+    "NaN",
+    "nan",
+    "没填",
+    "没有填",
+    "没填全",
+    "未填",
+    "不完整",
+    "完整性",
+    "完整率",
+    "空白",
+    "空的",
+    "补数据",
+    "字段质量",
+    "缺得多",
+    "缺得厉害",
+    "缺得严重",
+    "数据缺口",
+    "漏了很多信息",
+]
+
+NUMERIC_KEYWORDS = [
+    "数值",
+    "数值列",
+    "平均",
+    "均值",
+    "最大",
+    "最小",
+    "中位",
+    "标准差",
+    "摘要",
+    "销售额",
+    "利润",
+    "年龄",
+    "金额",
+    "收入",
+    "范围",
+    "连续型",
+    "统计一下",
+    "波动",
+    "指标",
+    "大概什么水平",
+    "大概情况",
+    "分布怎么样",
+    "整体分布",
+    "特别大",
+    "特别小",
+    "极值",
+    "高低水平",
+    "量化",
+]
+
+STRONG_NUMERIC_KEYWORDS = [
+    "数值",
+    "数值列",
+    "平均",
+    "均值",
+    "最大",
+    "最小",
+    "中位",
+    "标准差",
+    "范围",
+    "统计一下",
+    "波动",
+    "大概什么水平",
+    "大概情况",
+    "分布怎么样",
+    "整体分布",
+    "特别大",
+    "特别小",
+    "极值",
+    "高低水平",
+    "量化",
+]
+
+PROFILE_KEYWORDS = [
+    "读取",
+    "分析",
+    "画像",
+    "加载",
+    "导入",
+    "整体",
+    "概览",
+    "结构",
+    "摸一下",
+    "扫一眼",
+    "看一眼",
+    "大概什么情况",
+    "大概是个什么情况",
+    "整体情况",
+    "表结构",
+    "先看一下",
+    "初步看看",
+    "数据概况",
+    "数据概览",
+    "整体质量",
+    "有哪些列",
+    "质量怎么样",
+    "这份表的底",
+]
+
+BUSINESS_QUESTION_KEYWORDS = [
+    "业务问题",
+    "业务信号",
+    "业务风险",
+    "异常趋势",
+    "哪个因素",
+    "影响结果",
+    "值得优先关注",
+    "有什么问题",
+    "哪里有问题",
+    "能说明什么",
+    "能看出什么结论",
+    "判断一下",
+    "展开分析",
+]
+
+
+def has_report_negation(question: str) -> bool:
+    """识别“不要报告”类表达，避免报告关键词误触发。"""
+    return _contains_any(question, REPORT_NEGATION_KEYWORDS)
+
+
+def has_report_intent(question: str) -> bool:
+    return not has_report_negation(question) and _contains_any(question, REPORT_KEYWORDS)
+
+
+def has_missing_intent(question: str) -> bool:
+    return _contains_any(question, MISSING_KEYWORDS)
+
+
+def has_numeric_intent(question: str) -> bool:
+    return _contains_any(question, NUMERIC_KEYWORDS)
+
+
+def has_strong_numeric_intent(question: str) -> bool:
+    return _contains_any(question, STRONG_NUMERIC_KEYWORDS)
+
+
+def has_profile_intent(question: str) -> bool:
+    return _contains_any(question, PROFILE_KEYWORDS)
+
+
+def has_business_question_intent(question: str) -> bool:
+    return _contains_any(question, BUSINESS_QUESTION_KEYWORDS)
+
+
 def choose_tool_by_rules(question: str) -> dict:
     """MVP 先使用规则选工具，保证离线环境也能稳定测试和演示。"""
     question = question.strip()
     csv_path = _extract_csv_path(question)
-    if csv_path and any(
-        keyword in question
-        for keyword in ["读取", "分析", "画像", "加载", "导入", "整体", "概览", "结构"]
-    ):
+    if csv_path and has_profile_intent(question):
         return {"tool_name": "profile_csv", "arguments": {"file_path": csv_path}}
 
-    report_keywords = [
-        "报告",
-        "markdown",
-        "Markdown",
-        "发给老板",
-        "汇报",
-        "文档",
-        "结论报告",
-        "分析总结",
-        "数据分析总结",
-        "复盘",
-        "周报",
-    ]
-    if any(keyword in question for keyword in report_keywords):
-        return {"tool_name": "generate_report", "arguments": {}}
-
-    missing_keywords = [
-        "缺失",
-        "空值",
-        "null",
-        "NULL",
-        "NaN",
-        "nan",
-        "没填全",
-        "未填",
-        "空白",
-        "补数据",
-        "完整性",
-        "完整率",
-        "字段质量",
-        "缺得多",
-    ]
-    if any(keyword in question for keyword in missing_keywords):
+    if has_missing_intent(question):
         return {"tool_name": "missing_value_analysis", "arguments": {}}
 
-    numeric_keywords = [
-        "数值",
-        "平均",
-        "均值",
-        "最大",
-        "最小",
-        "中位",
-        "标准差",
-        "摘要",
-        "销售额",
-        "利润",
-        "年龄",
-        "金额",
-        "收入",
-        "范围",
-        "连续型",
-        "统计一下",
-        "波动",
-    ]
-    if any(keyword in question for keyword in numeric_keywords):
+    if has_business_question_intent(question) and not has_strong_numeric_intent(question):
+        return {
+            "tool_name": "answer_data_question",
+            "arguments": {"question": question},
+        }
+
+    if has_numeric_intent(question):
         return {"tool_name": "numeric_summary", "arguments": {}}
+
+    if has_report_intent(question):
+        return {"tool_name": "generate_report", "arguments": {}}
 
     return {
         "tool_name": "answer_data_question",

@@ -1,0 +1,295 @@
+{
+  "before": {
+    "path": "eval/history/v0.7_hard_rule_result.json",
+    "accuracy": 0.5312,
+    "correct": 17,
+    "total_cases": 32
+  },
+  "after": {
+    "path": "eval/history/v0.8_hard_rule_result.json",
+    "accuracy": 1.0,
+    "correct": 32,
+    "total_cases": 32
+  },
+  "delta": {
+    "accuracy": 0.4688,
+    "correct": 15
+  },
+  "category_delta": {
+    "ambiguous_intent": {
+      "before_total": 9,
+      "after_total": 9,
+      "before_correct": 5,
+      "after_correct": 9,
+      "before_accuracy": 0.5556,
+      "after_accuracy": 1.0,
+      "delta": 0.4444
+    },
+    "data_question": {
+      "before_total": 6,
+      "after_total": 6,
+      "before_correct": 5,
+      "after_correct": 6,
+      "before_accuracy": 0.8333,
+      "after_accuracy": 1.0,
+      "delta": 0.1667
+    },
+    "missing_value": {
+      "before_total": 4,
+      "after_total": 4,
+      "before_correct": 1,
+      "after_correct": 4,
+      "before_accuracy": 0.25,
+      "after_accuracy": 1.0,
+      "delta": 0.75
+    },
+    "numeric_summary": {
+      "before_total": 3,
+      "after_total": 3,
+      "before_correct": 3,
+      "after_correct": 3,
+      "before_accuracy": 1.0,
+      "after_accuracy": 1.0,
+      "delta": 0.0
+    },
+    "profile_overview": {
+      "before_total": 5,
+      "after_total": 5,
+      "before_correct": 1,
+      "after_correct": 5,
+      "before_accuracy": 0.2,
+      "after_accuracy": 1.0,
+      "delta": 0.8
+    },
+    "report_generation": {
+      "before_total": 5,
+      "after_total": 5,
+      "before_correct": 2,
+      "after_correct": 5,
+      "before_accuracy": 0.4,
+      "after_accuracy": 1.0,
+      "delta": 0.6
+    }
+  },
+  "subcategory_delta": {
+    "ambiguous_insight": {
+      "before_total": 2,
+      "after_total": 2,
+      "before_correct": 2,
+      "after_correct": 2,
+      "before_accuracy": 1.0,
+      "after_accuracy": 1.0,
+      "delta": 0.0
+    },
+    "ambiguous_overview": {
+      "before_total": 3,
+      "after_total": 3,
+      "before_correct": 0,
+      "after_correct": 3,
+      "before_accuracy": 0.0,
+      "after_accuracy": 1.0,
+      "delta": 1.0
+    },
+    "ambiguous_quality": {
+      "before_total": 3,
+      "after_total": 3,
+      "before_correct": 2,
+      "after_correct": 3,
+      "before_accuracy": 0.6667,
+      "after_accuracy": 1.0,
+      "delta": 0.3333
+    },
+    "business_insight": {
+      "before_total": 6,
+      "after_total": 6,
+      "before_correct": 5,
+      "after_correct": 6,
+      "before_accuracy": 0.8333,
+      "after_accuracy": 1.0,
+      "delta": 0.1667
+    },
+    "missing_vs_qa": {
+      "before_total": 4,
+      "after_total": 4,
+      "before_correct": 1,
+      "after_correct": 4,
+      "before_accuracy": 0.25,
+      "after_accuracy": 1.0,
+      "delta": 0.75
+    },
+    "numeric_vs_business_question": {
+      "before_total": 6,
+      "after_total": 6,
+      "before_correct": 3,
+      "after_correct": 6,
+      "before_accuracy": 0.5,
+      "after_accuracy": 1.0,
+      "delta": 0.5
+    },
+    "profile_vs_data_question": {
+      "before_total": 1,
+      "after_total": 1,
+      "before_correct": 0,
+      "after_correct": 1,
+      "before_accuracy": 0.0,
+      "after_accuracy": 1.0,
+      "delta": 1.0
+    },
+    "report_vs_profile": {
+      "before_total": 2,
+      "after_total": 2,
+      "before_correct": 1,
+      "after_correct": 2,
+      "before_accuracy": 0.5,
+      "after_accuracy": 1.0,
+      "delta": 0.5
+    },
+    "report_vs_summary": {
+      "before_total": 5,
+      "after_total": 5,
+      "before_correct": 3,
+      "after_correct": 5,
+      "before_accuracy": 0.6,
+      "after_accuracy": 1.0,
+      "delta": 0.4
+    }
+  },
+  "improved_cases": [
+    {
+      "id": "case_001",
+      "question": "你先帮我摸一下 data/sample_sales.csv 这份表的底",
+      "category": "profile_overview",
+      "subcategory": "ambiguous_overview",
+      "expected_tool": "profile_csv",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "profile_csv"
+    },
+    {
+      "id": "case_002",
+      "question": "data/sample_sales.csv 这个数据大概是个什么情况",
+      "category": "profile_overview",
+      "subcategory": "ambiguous_overview",
+      "expected_tool": "profile_csv",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "profile_csv"
+    },
+    {
+      "id": "case_004",
+      "question": "我刚拿到 data/sample_sales.csv，先帮我扫一眼",
+      "category": "profile_overview",
+      "subcategory": "ambiguous_overview",
+      "expected_tool": "profile_csv",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "profile_csv"
+    },
+    {
+      "id": "case_005",
+      "question": "data/sample_sales.csv 里面大概有哪些列，质量怎么样",
+      "category": "profile_overview",
+      "subcategory": "profile_vs_data_question",
+      "expected_tool": "profile_csv",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "profile_csv"
+    },
+    {
+      "id": "case_006",
+      "question": "这表是不是有很多地方没填",
+      "category": "missing_value",
+      "subcategory": "missing_vs_qa",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_007",
+      "question": "有没有哪些列数据不完整",
+      "category": "missing_value",
+      "subcategory": "missing_vs_qa",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_008",
+      "question": "哪些字段看起来缺得厉害",
+      "category": "missing_value",
+      "subcategory": "missing_vs_qa",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_010",
+      "question": "这份表是不是漏了很多信息",
+      "category": "ambiguous_intent",
+      "subcategory": "ambiguous_quality",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_015",
+      "question": "我想知道这些数有没有特别大或特别小的",
+      "category": "ambiguous_intent",
+      "subcategory": "numeric_vs_business_question",
+      "expected_tool": "numeric_summary",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "numeric_summary"
+    },
+    {
+      "id": "case_016",
+      "question": "这些指标的高低水平先给我量化一下",
+      "category": "ambiguous_intent",
+      "subcategory": "numeric_vs_business_question",
+      "expected_tool": "numeric_summary",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "numeric_summary"
+    },
+    {
+      "id": "case_017",
+      "question": "整理成一份能发出去的分析材料",
+      "category": "report_generation",
+      "subcategory": "report_vs_summary",
+      "expected_tool": "generate_report",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "generate_report"
+    },
+    {
+      "id": "case_019",
+      "question": "最后给我一个正式点的分析结论",
+      "category": "report_generation",
+      "subcategory": "report_vs_summary",
+      "expected_tool": "generate_report",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "generate_report"
+    },
+    {
+      "id": "case_021",
+      "question": "把分析内容整理得像交付材料一点",
+      "category": "report_generation",
+      "subcategory": "report_vs_profile",
+      "expected_tool": "generate_report",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "generate_report"
+    },
+    {
+      "id": "case_028",
+      "question": "销售额有什么问题",
+      "category": "ambiguous_intent",
+      "subcategory": "numeric_vs_business_question",
+      "expected_tool": "answer_data_question",
+      "before_actual_tool": "numeric_summary",
+      "after_actual_tool": "answer_data_question"
+    },
+    {
+      "id": "case_030",
+      "question": "先看业务信号，不要写报告",
+      "category": "data_question",
+      "subcategory": "business_insight",
+      "expected_tool": "answer_data_question",
+      "before_actual_tool": "generate_report",
+      "after_actual_tool": "answer_data_question"
+    }
+  ],
+  "regressed_cases": []
+}

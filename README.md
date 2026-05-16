@@ -272,6 +272,51 @@ failed_by_subcategory:
 
 说明：hard cases 准确率低于 1.0 是可接受的。它的目的不是刷分，而是暴露规则系统在开放表达下的边界；regression cases 则用于保护已经稳定的核心能力。
 
+## V0.8 当前能力总结
+
+V0.8 基于 V0.7 hard cases 的失败分布优化了 rule 工具选择规则，重点处理：
+
+- `ambiguous_overview`：带 CSV 路径的“摸一下 / 扫一眼 / 大概什么情况”等整体概览表达。
+- `missing_vs_qa`：没填、不完整、完整率、缺得厉害等口语化缺失值表达。
+- `numeric_vs_business_question`：金额、销售额、利润、指标水平、分布、极值等数值统计表达。
+- 报告否定词：例如“不要写报告”“先别写报告”“不是要正式报告”，避免“报告”关键词误触发。
+
+V0.8 新增和更新的历史结果：
+
+```text
+eval/history/v0.8_base_rule_result.json
+eval/history/v0.8_hard_rule_result.json
+eval/history/v0.8_regression_rule_result.json
+eval/history/v0.7_vs_v0.8_hard_rule_compare.json
+```
+
+V0.8 rule 评估结果：
+
+```text
+base: total_cases=50, correct=50, accuracy=1.0000
+hard: total_cases=32, correct=32, accuracy=1.0000
+regression: total_cases=15, correct=15, accuracy=1.0000
+```
+
+V0.7 hard vs V0.8 hard 对比：
+
+```text
+accuracy: 0.5312 -> 1.0000
+accuracy_delta: +0.4688
+improved_cases: 15
+regressed_cases: 0
+```
+
+重点 subcategory 变化：
+
+```text
+ambiguous_overview: 0.0000 -> 1.0000, delta=+1.0000
+missing_vs_qa: 0.2500 -> 1.0000, delta=+0.7500
+numeric_vs_business_question: 0.5000 -> 1.0000, delta=+0.5000
+```
+
+说明：V0.8 在当前 hard cases 上已全部命中，但 hard cases 的目标不是刷满分，而是持续暴露规则边界。后续仍应继续加入新 hard cases，并用 regression cases 保证优化不拉低稳定能力。
+
 当前已有但不作为主要 Agent 流程的能力：
 
 - `/chat` 基础 LLM 聊天接口。
@@ -725,6 +770,9 @@ python -m pytest
 - 工具选择对比脚本是否能输出 `category_comparison`。
 - 工具选择对比脚本是否能通过 `--output` 保存 JSON 对比结果。
 - 评估版本对比脚本是否能计算 accuracy delta、category delta、improved cases 和 regressed cases。
+- 评估版本对比脚本是否能输出 `subcategory_delta`，并兼容旧结果中没有 `subcategory_metrics` 的情况。
+- rule 工具选择是否能处理报告否定词，避免“不要写报告”误触发报告生成。
+- rule 工具选择是否能识别 hard cases 中的开放表达：`ambiguous_overview`、`missing_vs_qa`、`numeric_vs_business_question`。
 - 上传 CSV 后是否返回 `session_id`。
 - `/chat/data` 是否支持 `question + session_id`。
 - 不存在的 `session_id` 是否返回 404。
@@ -734,7 +782,7 @@ python -m pytest
 当前验证结果：
 
 ```text
-65 passed
+72 passed
 ```
 
 ## 工具选择评估 / Tool Choice Evaluation
@@ -842,6 +890,14 @@ regression cases：
 .venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_regression_cases.jsonl --output eval/history/v0.7_regression_rule_result.json
 ```
 
+保存 V0.8 评估结果：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_cases.jsonl --output eval/history/v0.8_base_rule_result.json
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_hard_cases.jsonl --output eval/history/v0.8_hard_rule_result.json
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_regression_cases.jsonl --output eval/history/v0.8_regression_rule_result.json
+```
+
 V0.4 新增 rule vs llm 对比脚本。默认只运行 `rule`，不会调用真实 LLM：
 
 ```bash
@@ -897,6 +953,12 @@ V0.6 新增评估版本对比脚本，用于比较规则优化前后的结果：
 
 ```bash
 .venv/bin/python scripts/compare_eval_versions.py --before eval/history/v0.5_rule_result.json --after eval/history/v0.6_rule_result.json --output eval/history/v0.5_vs_v0.6_rule_compare.json
+```
+
+V0.8 使用同一个脚本对比 hard cases 的规则优化效果，并新增 `subcategory_delta`：
+
+```bash
+.venv/bin/python scripts/compare_eval_versions.py --before eval/history/v0.7_hard_rule_result.json --after eval/history/v0.8_hard_rule_result.json --output eval/history/v0.7_vs_v0.8_hard_rule_compare.json
 ```
 
 ## 示例输入输出
@@ -1535,3 +1597,77 @@ subcategory:
 
 - V0.7 证明 V0.6 在基础集满分，但在更开放表达下仍有明显边界。
 - 项目评估体系从“单一准确率”升级为“基础评估 + hard 评估 + 回归保护”。
+
+### 2026-05-17：V0.8 Hard Cases 规则优化与否定词处理
+
+目标：基于 V0.7 hard cases 的失败分布优化 rule 工具选择逻辑，同时保持 base 和 regression 评估集不退化。
+
+完成内容：
+
+- 优化 `app/services/agent_service.py` 中的规则工具选择逻辑：
+  - 增加报告否定词判断，避免“不要写报告”“先别写报告”“不是要正式报告”等表达误触发 `generate_report`。
+  - 补充整体画像类开放表达，例如“摸一下”“扫一眼”“大概是个什么情况”。
+  - 补充缺失值类开放表达，例如“没填”“不完整”“完整率”“缺得厉害”。
+  - 补充数值统计类开放表达，例如“金额相关字段”“整体分布”“特别大或特别小”“高低水平”“量化”。
+  - 增加业务问题意图判断，避免“销售额有什么问题”被简单关键词误判为数值摘要。
+- 增强 `scripts/compare_eval_versions.py`：
+  - 保留 `category_delta`。
+  - 新增 `subcategory_delta`。
+  - 兼容旧结果中没有 `subcategory_metrics` 的情况。
+- 补充测试：
+  - 报告否定词处理。
+  - `ambiguous_overview`、`missing_vs_qa`、`numeric_vs_business_question` 的代表性 hard 表达。
+  - 版本对比脚本的 `subcategory_delta`。
+- 保存 V0.8 三类评估结果和 hard 版本对比结果：
+
+```text
+eval/history/v0.8_base_rule_result.json
+eval/history/v0.8_hard_rule_result.json
+eval/history/v0.8_regression_rule_result.json
+eval/history/v0.7_vs_v0.8_hard_rule_compare.json
+```
+
+真实运行结果：
+
+```text
+base: 50/50, accuracy=1.0000
+hard: 32/32, accuracy=1.0000
+regression: 15/15, accuracy=1.0000
+
+V0.7 hard -> V0.8 hard:
+accuracy: 0.5312 -> 1.0000
+accuracy_delta: +0.4688
+improved_cases: 15
+regressed_cases: 0
+```
+
+重点 subcategory 变化：
+
+```text
+ambiguous_overview: 0.0000 -> 1.0000, delta=+1.0000
+missing_vs_qa: 0.2500 -> 1.0000, delta=+0.7500
+numeric_vs_business_question: 0.5000 -> 1.0000, delta=+0.5000
+```
+
+当日核心产出：
+
+- `app/services/agent_service.py`
+- `scripts/compare_eval_versions.py`
+- `tests/test_tools_agent.py`
+- `tests/test_compare_eval_versions.py`
+- `eval/history/v0.8_base_rule_result.json`
+- `eval/history/v0.8_hard_rule_result.json`
+- `eval/history/v0.8_regression_rule_result.json`
+- `eval/history/v0.7_vs_v0.8_hard_rule_compare.json`
+- `README.md`
+
+当日技术点：
+
+- 关键词规则需要处理否定词，否则“不要写报告”会被“报告”两个字误触发。
+- hard cases 不是一次性刷满分的终点，而是持续扩充规则边界和回归保护的工具。
+- `subcategory_delta` 比 `category_delta` 更适合定位具体混淆边界是否改善。
+
+阶段价值：
+
+- V0.8 把 V0.7 暴露出来的 hard 失败分布转化为可验证的规则优化。
+- base 和 regression 均保持 1.0000，说明本轮优化没有拉低已有稳定能力。

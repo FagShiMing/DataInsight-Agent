@@ -136,3 +136,46 @@ def test_rule_choice_keeps_business_question_as_data_question():
     choice = choose_tool_by_rules("这份数据有什么值得关注的业务问题")
 
     assert choice["tool_name"] == "answer_data_question"
+
+
+def test_rule_choice_ignores_report_keyword_when_negated_for_profile():
+    choice = choose_tool_by_rules("先别写报告，先看一下 data/sample_sales.csv 的表结构和整体质量")
+
+    assert choice["tool_name"] == "profile_csv"
+    assert choice["arguments"]["file_path"] == "data/sample_sales.csv"
+
+
+def test_rule_choice_ignores_report_keyword_when_missing_intent_is_clear():
+    choice = choose_tool_by_rules("不要生成报告，只看哪些字段缺失")
+
+    assert choice["tool_name"] == "missing_value_analysis"
+
+
+def test_rule_choice_ignores_report_keyword_when_numeric_intent_is_clear():
+    choice = choose_tool_by_rules("不是要正式报告，我只想知道销售额大概情况")
+
+    assert choice["tool_name"] == "numeric_summary"
+
+
+def test_rule_choice_detects_ambiguous_overview_with_csv_path():
+    first_choice = choose_tool_by_rules("你先帮我摸一下 data/sample_sales.csv 这份表的底")
+    second_choice = choose_tool_by_rules("我刚拿到 data/sample_sales.csv，先帮我扫一眼")
+
+    assert first_choice["tool_name"] == "profile_csv"
+    assert second_choice["tool_name"] == "profile_csv"
+
+
+def test_rule_choice_detects_incomplete_data_language_as_missing():
+    first_choice = choose_tool_by_rules("这表是不是有很多地方没填")
+    second_choice = choose_tool_by_rules("完整率最差的是哪些字段")
+
+    assert first_choice["tool_name"] == "missing_value_analysis"
+    assert second_choice["tool_name"] == "missing_value_analysis"
+
+
+def test_rule_choice_detects_numeric_level_and_distribution_requests():
+    first_choice = choose_tool_by_rules("金额相关的字段大概什么水平")
+    second_choice = choose_tool_by_rules("销售额、利润这些数整体分布怎么样")
+
+    assert first_choice["tool_name"] == "numeric_summary"
+    assert second_choice["tool_name"] == "numeric_summary"

@@ -46,22 +46,22 @@ def _summary(path: str | Path, result: dict) -> dict:
     }
 
 
-def _category_delta(before: dict, after: dict) -> dict:
-    before_metrics = before.get("category_metrics", {})
-    after_metrics = after.get("category_metrics", {})
-    categories = sorted(set(before_metrics) | set(after_metrics))
+def _metrics_delta(before: dict, after: dict, metrics_key: str) -> dict:
+    before_metrics = before.get(metrics_key, {})
+    after_metrics = after.get(metrics_key, {})
+    groups = sorted(set(before_metrics) | set(after_metrics))
     delta = {}
 
-    for category in categories:
+    for group_name in groups:
         before_metric = before_metrics.get(
-            category,
+            group_name,
             {"total": 0, "correct": 0, "accuracy": 0.0},
         )
         after_metric = after_metrics.get(
-            category,
+            group_name,
             {"total": 0, "correct": 0, "accuracy": 0.0},
         )
-        delta[category] = {
+        delta[group_name] = {
             "before_total": before_metric["total"],
             "after_total": after_metric["total"],
             "before_correct": before_metric["correct"],
@@ -72,6 +72,14 @@ def _category_delta(before: dict, after: dict) -> dict:
         }
 
     return delta
+
+
+def _category_delta(before: dict, after: dict) -> dict:
+    return _metrics_delta(before, after, "category_metrics")
+
+
+def _subcategory_delta(before: dict, after: dict) -> dict:
+    return _metrics_delta(before, after, "subcategory_metrics")
 
 
 def _case_delta(before_case: dict, after_case: dict) -> dict:
@@ -125,6 +133,7 @@ def compare_eval_results(
             "correct": after["correct"] - before["correct"],
         },
         "category_delta": _category_delta(before, after),
+        "subcategory_delta": _subcategory_delta(before, after),
         "improved_cases": improved_cases,
         "regressed_cases": regressed_cases,
     }
@@ -157,6 +166,17 @@ def _print_summary(report: dict, verbose: bool = False) -> None:
             f"{metric['after_accuracy']:.4f} "
             f"(delta={metric['delta']:.4f})"
         )
+
+    if report["subcategory_delta"]:
+        print()
+        print("Subcategory delta:")
+        for subcategory, metric in report["subcategory_delta"].items():
+            print(
+                f"- {subcategory}: "
+                f"{metric['before_accuracy']:.4f} -> "
+                f"{metric['after_accuracy']:.4f} "
+                f"(delta={metric['delta']:.4f})"
+            )
 
     print()
     print(f"improved_cases: {len(report['improved_cases'])}")
