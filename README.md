@@ -2,7 +2,7 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、pytest 自动化测试。
 
 当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具；如果请求显式传入 `use_llm_tool_choice=true`，则会尝试使用 LLM 输出工具选择 JSON，并在失败时 fallback 到规则版。
 
@@ -69,7 +69,7 @@ V0.2 当前已经支持：
 - `tool_trace` 调用轨迹：记录工具名、参数、状态、结果摘要、是否 fallback、fallback 原因和 LLM 原始输出。
 - 工具选择评估集：使用 `eval/tool_choice_cases.jsonl` 和 `scripts/evaluate_tool_choice.py` 评估规则版工具选择准确率。
 
-当前规则版工具选择评估结果：
+V0.2 阶段的规则版工具选择评估结果：
 
 ```text
 total_cases: 16
@@ -77,7 +77,7 @@ correct: 16
 accuracy: 1.0000
 ```
 
-说明：这个评估集是基础评估，只代表当前 16 条固定样例全部命中规则，不代表真实开放场景下工具选择永远满分。后续需要继续增加更多真实问题表达，并扩展到 LLM 工具选择评估。
+说明：这是 V0.2 阶段的基础评估结果，只代表当时 16 条固定样例全部命中规则，不代表真实开放场景下工具选择永远满分。
 
 ## V0.3 当前能力总结
 
@@ -101,6 +101,34 @@ V0.3 在 V0.2 的规则版工具选择评估基础上，补充了可选 LLM 工�
 - 支持通过 `--output` 保存完整 JSON 评估结果，方便后续对比 rule 和 LLM 的稳定性。
 
 注意：`llm` 模式需要配置智谱 API Key。如果 API Key 缺失或 LLM 调用失败，评估脚本不会直接崩溃，而是把错误记录到对应 case 的 `error` 和 `failed_cases` 中。
+
+## V0.4 当前能力总结
+
+V0.4 把工具选择评估从“单模式评估”推进到“评估集扩充 + rule / llm 对比”：
+
+- `eval/tool_choice_cases.jsonl` 从 16 条扩充到 50 条，覆盖更真实的用户表达和容易混淆的问题。
+- 评估集覆盖当前工具注册表中的 5 类工具：
+  - `profile_csv`
+  - `missing_value_analysis`
+  - `numeric_summary`
+  - `answer_data_question`
+  - `generate_report`
+- 新增 `scripts/compare_tool_choice_modes.py`：
+  - 默认只运行 `rule` 模式，不调用真实 LLM。
+  - 只有显式传入 `--run-llm` 时，才会尝试运行 `llm` 模式。
+  - 输出 rule / llm 各自准确率、失败样例和差异样例。
+  - 支持 `--output` 保存 JSON 对比结果。
+- 新增测试确保 compare 脚本默认不访问真实 LLM，LLM 分支通过 mock 验证。
+
+当前 V0.4 规则版工具选择评估结果：
+
+```text
+total_cases: 50
+correct: 38
+accuracy: 0.7600
+```
+
+说明：V0.4 的评估集故意加入了“数据完整性”“字段质量”“汇报材料”“销售额和利润整体表现”等更接近真实用户的表达，因此 rule 准确率不再追求 100%。这个结果更适合用来定位规则版 Agent 在哪些表达上容易选错工具。
 
 当前已有但不作为主要 Agent 流程的能力：
 
@@ -138,12 +166,16 @@ DataInsight-Agent/
 ├── docs/
 │   └── project_review.md
 ├── eval/
-│   └── tool_choice_cases.jsonl
+│   ├── tool_choice_cases.jsonl
+│   └── tool_choice_compare_result.json
 ├── scripts/
+│   ├── compare_tool_choice_modes.py
 │   └── evaluate_tool_choice.py
 ├── tests/
+│   ├── test_compare_tool_choice_modes.py
 │   ├── test_data_profile.py
 │   ├── test_evaluate_tool_choice.py
+│   ├── test_llm_tool_choice.py
 │   ├── test_profile_upload.py
 │   ├── test_report_service.py
 │   ├── test_session_chat.py
@@ -165,7 +197,9 @@ DataInsight-Agent/
 - `tests/`：pytest 测试。
 - `docs/project_review.md`：面试复盘材料。
 - `eval/tool_choice_cases.jsonl`：工具选择评估样例。
+- `eval/tool_choice_compare_result.json`：工具选择对比脚本通过 `--output` 生成的 JSON 结果文件。
 - `scripts/evaluate_tool_choice.py`：工具选择准确率评估脚本，支持 `rule` 和 `llm` 两种模式。
+- `scripts/compare_tool_choice_modes.py`：工具选择模式对比脚本，默认只运行 `rule`，可选运行 `llm`。
 
 ## Agent 工具调用流程
 
@@ -520,6 +554,9 @@ python -m pytest
 - 工具选择评估脚本是否能跳过空行、识别缺字段和 JSON 格式错误。
 - 工具选择评估脚本是否能通过 `--output` 保存 JSON 结果。
 - LLM 工具选择评估是否可以通过 mock 测试，避免真实请求 API。
+- 工具选择对比脚本默认是否只运行 `rule` 模式。
+- 工具选择对比脚本是否能通过 mock 比较 `rule` 和 `llm` 的差异样例。
+- 工具选择对比脚本是否能通过 `--output` 保存 JSON 对比结果。
 - 上传 CSV 后是否返回 `session_id`。
 - `/chat/data` 是否支持 `question + session_id`。
 - 不存在的 `session_id` 是否返回 404。
@@ -529,7 +566,7 @@ python -m pytest
 当前验证结果：
 
 ```text
-37 passed
+45 passed
 ```
 
 ## 工具选择评估 / Tool Choice Evaluation
@@ -582,6 +619,44 @@ python scripts/evaluate_tool_choice.py
 ```bash
 .venv/bin/python scripts/evaluate_tool_choice.py --mode rule --output eval/tool_choice_result.json
 ```
+
+V0.4 新增 rule vs llm 对比脚本。默认只运行 `rule`，不会调用真实 LLM：
+
+```bash
+.venv/bin/python scripts/compare_tool_choice_modes.py
+```
+
+查看对比摘要和差异详情：
+
+```bash
+.venv/bin/python scripts/compare_tool_choice_modes.py --verbose
+```
+
+运行 rule vs llm 对比，需要先配置智谱 API Key，并显式加上 `--run-llm`：
+
+```bash
+.venv/bin/python scripts/compare_tool_choice_modes.py --run-llm
+```
+
+保存对比结果：
+
+```bash
+.venv/bin/python scripts/compare_tool_choice_modes.py --run-llm --output eval/tool_choice_compare_result.json
+```
+
+如果只想保存默认 rule-only 对比结果，也可以不加 `--run-llm`：
+
+```bash
+.venv/bin/python scripts/compare_tool_choice_modes.py --output eval/tool_choice_compare_result.json
+```
+
+说明：
+
+- `compare_tool_choice_modes.py` 默认不会调用真实 LLM。
+- 只有加 `--run-llm` 才会尝试运行 `llm` 模式。
+- `rule` 模式不需要 API Key。
+- `llm` 模式需要智谱 API Key。
+- 对比结果可以帮助定位 Agent 在什么类型的问题上选错工具，例如“报告生成 vs 普通问答”“缺失值分析 vs 数据问答”“数值摘要 vs 数据问答”。
 
 ## 示例输入输出
 
@@ -679,9 +754,9 @@ missing_value_analysis
 ## 后续优化方向
 
 - 增加更多数据分析工具，例如异常值检测、相关性分析、分组统计。
-- 扩充工具选择评估集，加入更多真实表达、边界问题和容易混淆的问题。
+- 继续扩充工具选择评估集，加入更多真实表达、边界问题和容易混淆的问题。
 - 增加报告完整性和异常处理能力评估。
-- 对比 rule 和 llm 两种工具选择模式在不同问题类型下的稳定性。
+- 按问题类型细分 rule 和 llm 两种工具选择模式的稳定性。
 - 将当前内存 session_store 升级为 Redis、SQLite 或 PostgreSQL，保存上传记录、工具调用轨迹和报告。
 - 增加极简前端或 Streamlit 页面，方便非技术用户演示。
 - 对 `/chat` LLM 调用增加 mock 测试，避免测试依赖真实外部 API。
@@ -981,3 +1056,44 @@ POST /report/generate
 - V0.3 让项目具备了评估 Agent 工具选择稳定性的基础框架。
 - `rule` 模式可以作为确定性 baseline。
 - `llm` 模式可以作为后续模型效果观察入口，但不会影响默认本地测试稳定性。
+
+### 2026-05-16：V0.4 工具选择评估集扩充与模式对比
+
+目标：把项目从“能评估单一模式工具选择”升级为“能扩充评估集，并对比 rule 模式和 llm 模式的工具选择效果”。
+
+完成内容：
+
+- 扩充 `eval/tool_choice_cases.jsonl`：
+  - 从 16 条扩充到 50 条。
+  - 覆盖 `profile_csv`、`missing_value_analysis`、`numeric_summary`、`answer_data_question`、`generate_report`。
+  - 加入更真实和容易混淆的问题表达。
+- 新增 `scripts/compare_tool_choice_modes.py`：
+  - 支持 `--cases` 指定评估集。
+  - 支持 `--run-llm` 显式运行 LLM 模式。
+  - 支持 `--verbose` 查看差异样例。
+  - 支持 `--output` 保存 JSON 对比结果。
+- 默认 compare 脚本只运行 `rule`，不会调用真实 LLM。
+- `--run-llm` 分支复用 V0.3 已有的 `evaluate_tool_choice()`，不重复实现评估逻辑。
+- 新增 `tests/test_compare_tool_choice_modes.py`，通过 mock 验证 LLM 对比逻辑，不依赖真实 API Key。
+- 补充 `profile_csv` 的规则版路径识别，让包含 `data/sample_sales.csv` 的本地 CSV 画像 case 可以进入对应工具。
+
+当日核心产出：
+
+- `app/services/agent_service.py`
+- `eval/tool_choice_cases.jsonl`
+- `scripts/compare_tool_choice_modes.py`
+- `tests/test_compare_tool_choice_modes.py`
+- `README.md`
+
+当日技术点：
+
+- 评估集不只看高分，也要覆盖真实表达和容易混淆的问题。
+- 对比报告需要同时保留两种模式的整体指标、失败样例和差异样例。
+- 默认路径必须安全：不加 `--run-llm` 时不能调用真实 LLM。
+- 测试 LLM 分支时使用 monkeypatch/mock，避免联网和 API Key 依赖。
+
+阶段价值：
+
+- V0.4 让项目不仅能“调用工具”，还能评估 Agent 工具选择效果。
+- rule 模式可以作为 baseline，llm 模式可以作为后续模型能力对比入口。
+- 差异样例可以指导下一步优化规则、prompt 或工具边界。

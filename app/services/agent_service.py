@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -87,9 +88,19 @@ def parse_llm_tool_choice(raw_text: str) -> dict:
     return {"tool_name": tool_name, "arguments": arguments}
 
 
+def _extract_csv_path(question: str) -> str | None:
+    match = re.search(r"[\w./\\-]+\.csv", question, flags=re.IGNORECASE)
+    if match:
+        return match.group(0)
+    return None
+
+
 def choose_tool_by_rules(question: str) -> dict:
     """MVP 先使用规则选工具，保证离线环境也能稳定测试和演示。"""
     question = question.strip()
+    csv_path = _extract_csv_path(question)
+    if csv_path and any(keyword in question for keyword in ["读取", "分析", "画像", "加载", "导入"]):
+        return {"tool_name": "profile_csv", "arguments": {"file_path": csv_path}}
     if any(keyword in question for keyword in ["报告", "markdown", "Markdown"]):
         return {"tool_name": "generate_report", "arguments": {}}
     if any(keyword in question for keyword in ["缺失", "空值", "null", "NULL"]):
