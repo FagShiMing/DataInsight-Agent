@@ -2,7 +2,7 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、缺失值分析、数值列摘要、规则版工具选择、工具调用轨迹记录、Markdown 报告生成和 pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、工具调用轨迹记录、Markdown 报告生成和 pytest 自动化测试。
 
 当前项目不包含前端、数据库、RAG、多 Agent 编排，也没有把 LLM 接入到 Agent 工具选择主流程中。默认的数据问答流程使用规则判断选择工具，目的是让功能稳定、可测试、适合面试讲解。
 
@@ -24,6 +24,7 @@ DataInsight Agent 把这些固定分析步骤封装成后端接口，并用一�
 当前已实现功能：
 
 - CSV 文件上传和读取。
+- 上传 CSV 后返回 `session_id`，后续可以用 `question + session_id` 继续提问。
 - 基础数据画像：
   - 行数
   - 列数
@@ -85,6 +86,7 @@ DataInsight-Agent/
 │       ├── data_profile.py
 │       ├── llm_service.py
 │       ├── report_service.py
+│       ├── session_store.py
 │       └── tools.py
 ├── data/
 │   └── sample_sales.csv
@@ -94,6 +96,7 @@ DataInsight-Agent/
 │   ├── test_data_profile.py
 │   ├── test_profile_upload.py
 │   ├── test_report_service.py
+│   ├── test_session_chat.py
 │   └── test_tools_agent.py
 ├── pytest.ini
 ├── requirements.txt
@@ -107,6 +110,7 @@ DataInsight-Agent/
 - `app/services/tools.py`：工具函数和工具注册表。
 - `app/services/agent_service.py`：规则版 Agent 调度、工具调用和轨迹记录。
 - `app/services/report_service.py`：Markdown 报告生成。
+- `app/services/session_store.py`：内存版 session_id 缓存，用于保存上传 CSV 后生成的 profile。
 - `app/services/llm_service.py`：智谱 LLM 调用封装。
 - `tests/`：pytest 测试。
 - `docs/project_review.md`：面试复盘材料。
@@ -118,7 +122,9 @@ DataInsight-Agent/
 核心流程：
 
 ```text
-用户提交 question 和 profile
+用户上传 CSV，得到 session_id
+-> 用户提交 question 和 session_id
+-> 后端根据 session_id 取出 profile
 -> choose_tool_by_rules(question)
 -> 根据关键词选择工具名
 -> get_tool(tool_name)
@@ -142,6 +148,85 @@ DataInsight-Agent/
 - `status`
 - `result_summary` 或 `error_message`
 - `timestamp`
+
+## Session 机制
+
+当前项目实现了一个最小可用的内存版 session 机制，核心文件是：
+
+```text
+app/services/session_store.py
+```
+
+它提供三个函数：
+
+- `create_session(profile: dict) -> str`
+- `get_profile(session_id: str) -> dict | None`
+- `delete_session(session_id: str) -> bool`
+
+为什么当前使用内存字典：
+
+- 当前阶段目标是验证 Agent MVP 流程，不引入数据库、Redis 或复杂部署。
+- 内存字典实现简单，适合学习、测试和面试讲解。
+- 上传 CSV 后保存 profile，后续提问只需要传 `session_id`，避免每次把完整 profile 传回后端。
+
+当前流程：
+
+```text
+POST /profile/upload
+-> 后端读取 CSV 并生成 profile
+-> create_session(profile)
+-> 返回 session_id + profile
+-> POST /chat/data
+-> 传 question + session_id
+-> get_profile(session_id)
+-> 调用现有 Agent 逻辑回答问题
+```
+
+`/chat/data` 目前兼容两种请求方式：
+
+新方式，推荐用于正常流程：
+
+```json
+{
+  "question": "哪些字段有缺失值？",
+  "session_id": "上传 CSV 后返回的 session_id"
+}
+```
+
+旧方式，继续兼容直接传 profile：
+
+```json
+{
+  "question": "哪些字段有缺失值？",
+  "profile": {
+    "shape": {
+      "rows": 5,
+      "columns": 5
+    },
+    "columns": ["date", "product", "region", "sales", "profit"],
+    "missing_values": {
+      "sales": 1
+    },
+    "missing_rate": {
+      "sales": 0.2
+    },
+    "numeric_summary": {}
+  }
+}
+```
+
+当前方案局限性：
+
+- 服务重启后，内存中的 session 会全部丢失。
+- 多进程或多实例部署时，不同进程之间不会共享 session。
+- 当前没有过期时间，长期运行可能造成内存增长。
+- 没有持久化，无法保存历史上传记录和历史分析结果。
+
+后续生产化可以替换为：
+
+- Redis：适合缓存 session，支持 TTL 过期，多实例共享。
+- SQLite：适合本地单机持久化，能保存上传历史和分析报告。
+- PostgreSQL：适合正式生产环境，能支持用户、权限、历史记录和审计查询。
 
 ## API 接口说明
 
@@ -177,6 +262,7 @@ multipart/form-data
 
 返回字段：
 
+- `session_id`：本次上传生成的会话 ID，后续 `/chat/data` 可以用它查找 profile。
 - `filename`：上传文件名。
 - `shape.rows`：行数。
 - `shape.columns`：列数。
@@ -194,7 +280,18 @@ multipart/form-data
 POST /chat/data
 ```
 
-当前项目没有会话存储，所以调用 `/chat/data` 时需要把 `/profile/upload` 返回的 profile 一起传入。
+推荐方式：传 `question + session_id`。
+
+请求示例：
+
+```json
+{
+  "question": "哪些字段有缺失值？",
+  "session_id": "上传 CSV 后返回的 session_id"
+}
+```
+
+兼容旧方式：直接传 `question + profile`。
 
 请求示例：
 
@@ -232,6 +329,11 @@ POST /chat/data
 - `tool_name`：Agent 本次选择的工具。
 - `result`：工具执行结果。
 - `tool_trace`：工具调用轨迹。
+
+错误处理：
+
+- `session_id` 不存在：返回 404，`detail` 为 `Session not found`。
+- `session_id` 和 `profile` 都不传：返回 400，`detail` 为 `Either session_id or profile is required`。
 
 ### 生成 Markdown 报告
 
@@ -361,12 +463,16 @@ python -m pytest
 - 工具不存在时是否返回错误。
 - Agent 是否能完成一次工具调用闭环。
 - Agent 是否能处理非法 JSON。
+- 上传 CSV 后是否返回 `session_id`。
+- `/chat/data` 是否支持 `question + session_id`。
+- 不存在的 `session_id` 是否返回 404。
+- 旧的 `question + profile` 方式是否仍然可用。
 - Markdown 报告是否包含核心章节。
 
 当前验证结果：
 
 ```text
-14 passed
+18 passed
 ```
 
 ## 示例输入输出
@@ -392,6 +498,7 @@ date,product,region,sales,profit
 
 ```json
 {
+  "session_id": "7f4c2d2a-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "filename": "sample_sales.csv",
   "shape": {
     "rows": 5,
@@ -421,6 +528,15 @@ date,product,region,sales,profit
 哪些字段有缺失值？
 ```
 
+请求可以只传：
+
+```json
+{
+  "question": "哪些字段有缺失值？",
+  "session_id": "上传 CSV 后返回的 session_id"
+}
+```
+
 Agent 会选择：
 
 ```text
@@ -445,6 +561,7 @@ missing_value_analysis
 ## 项目亮点
 
 - 用 pandas 完成确定性数据画像，避免所有分析都依赖 LLM。
+- 用内存 session_id 缓存 profile，让上传和后续问答形成更自然的流程。
 - 使用工具注册表管理 Agent 可调用能力，结构清晰，方便扩展。
 - Agent 调用过程会记录工具轨迹，便于调试和面试讲解。
 - 不引入 LangChain / LangGraph，代码更轻，适合说明 Tool Calling 原理。
@@ -453,17 +570,18 @@ missing_value_analysis
 
 ## 后续优化方向
 
-- 增加 `session_id`，让上传后的 profile 可以在后续问答中复用。
 - 让 LLM 基于 `TOOL_REGISTRY` 输出 JSON 工具选择结果，并用规则选择作为 fallback。
 - 增加更多数据分析工具，例如异常值检测、相关性分析、分组统计。
 - 增加基础评估集，评估工具选择准确率、报告完整性和异常处理能力。
-- 接入数据库，保存上传记录、工具调用轨迹和报告。
+- 将当前内存 session_store 升级为 Redis、SQLite 或 PostgreSQL，保存上传记录、工具调用轨迹和报告。
 - 增加极简前端或 Streamlit 页面，方便非技术用户演示。
 - 对 `/chat` LLM 调用增加 mock 测试，避免测试依赖真实外部 API。
 
 ## 当前限制
 
-- `/chat/data` 不保存会话状态，需要调用方传入 profile。
+- 当前 session_store 使用内存字典，服务重启后 session 会丢失。
+- 多进程或多实例部署时，内存 session 不共享。
+- 当前 session 没有过期时间，也没有持久化。
 - 默认 Agent 工具选择是规则判断，不是真正的 LLM 自主规划。
 - `/chat` 依赖外部 LLM API 和环境变量。
 - 当前没有数据库、前端、RAG 和 Docker。

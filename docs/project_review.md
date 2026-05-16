@@ -24,7 +24,9 @@ DataInsight-Agent：轻量级 CSV 数据分析 Agent 系统。
 -> FastAPI 接收文件
 -> pandas 读取为 DataFrame
 -> 生成数据画像 profile
+-> 创建 session_id 并缓存 profile
 -> 用户围绕数据提问
+-> 后端通过 session_id 找到 profile
 -> Agent 根据问题选择工具
 -> 工具执行
 -> 返回 answer / result / tool_trace
@@ -55,6 +57,9 @@ app/services/agent_service.py
 
 app/services/report_service.py
 -> Markdown 报告生成
+
+app/services/session_store.py
+-> session_id 内存会话缓存
 
 tests/
 -> pytest 自动化测试
@@ -145,6 +150,24 @@ FastAPI 的接口声明、Pydantic 请求模型、pytest 测试函数属于框�
 -> 返回 Markdown
 ```
 
+### `app/services/session_store.py`
+
+输入：上传 CSV 后生成的 profile，或用户后续请求传入的 session_id。
+
+输出：`session_id` 或对应的 profile。
+
+执行流程：
+
+```text
+create_session(profile)
+-> 使用 uuid4 生成 session_id
+-> 把 session_id 和 profile 存入内存字典
+-> /chat/data 根据 session_id 调用 get_profile
+-> 找到 profile 后继续走 Agent 工具调用流程
+```
+
+当前使用内存字典是为了让 MVP 先跑通“上传一次，后续用 session_id 提问”的流程，不引入数据库或 Redis。
+
 ## 7. Agent 工具调用流程
 
 当前是规则版轻量 Agent，不依赖 LangChain / LangGraph。
@@ -152,7 +175,10 @@ FastAPI 的接口声明、Pydantic 请求模型、pytest 测试函数属于框�
 执行流程：
 
 ```text
-run_agent(question, profile)
+用户上传 CSV 得到 session_id
+-> /chat/data 提交 question + session_id
+-> 后端从 session_store 取出 profile
+-> run_agent(question, profile)
 -> choose_tool_by_rules(question)
 -> get_tool(tool_name)
 -> call_tool(tool_name, arguments)
@@ -166,6 +192,362 @@ run_agent(question, profile)
 - 问题包含“平均、最大、最小、数值、中位、标准差”：调用 `numeric_summary`。
 - 问题包含“报告、Markdown”：调用 `generate_report`。
 - 其他问题：调用 `answer_data_question`。
+
+## 7.1 session_id 内存会话缓存机制
+
+### 这个模块解决什么问题
+
+在早期版本中，`/chat/data` 需要调用方每次手动传入完整的 `profile`。这虽然简单，但接口使用体验不好：
+
+```text
+用户上传 CSV 得到 profile
+-> 每次提问都要把完整 profile 再传一遍
+```
+
+session_id 内存会话缓存机制解决的是“上传 CSV 之后如何在后续问答中复用 profile”的问题。
+
+新的流程是：
+
+```text
+用户上传 CSV
+-> 后端生成 profile
+-> 后端创建 session_id
+-> 返回 session_id
+-> 用户后续只传 question + session_id
+-> 后端自动找到 profile
+-> 调用 Agent 回答问题
+```
+
+### 输入是什么
+
+`create_session(profile)` 的输入：
+
+- `profile: dict`：CSV 上传后生成的数据画像。
+
+`get_profile(session_id)` 的输入：
+
+- `session_id: str`：上传 CSV 时返回的会话 ID。
+
+`delete_session(session_id)` 的输入：
+
+- `session_id: str`：需要删除的会话 ID。
+
+`/chat/data` 的新请求方式：
+
+```json
+{
+  "question": "哪些字段有缺失值？",
+  "session_id": "上传 CSV 后返回的 session_id"
+}
+```
+
+旧请求方式仍然兼容：
+
+```json
+{
+  "question": "哪些字段有缺失值？",
+  "profile": {
+    "shape": {
+      "rows": 5,
+      "columns": 5
+    }
+  }
+}
+```
+
+### 输出是什么
+
+`create_session(profile)` 输出：
+
+```text
+session_id 字符串
+```
+
+`get_profile(session_id)` 输出：
+
+```text
+找到时返回 profile 字典
+找不到时返回 None
+```
+
+`delete_session(session_id)` 输出：
+
+```text
+删除成功返回 True
+session_id 不存在返回 False
+```
+
+`/profile/upload` 返回中新增：
+
+```json
+{
+  "session_id": "7f4c2d2a-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "filename": "sample_sales.csv",
+  "shape": {
+    "rows": 5,
+    "columns": 5
+  }
+}
+```
+
+### 核心执行流程
+
+上传阶段：
+
+```text
+/profile/upload
+-> pandas 读取 CSV
+-> profile_dataframe(df) 生成 profile
+-> 整理 response_data
+-> create_session(response_data)
+-> response_data 增加 session_id
+-> 返回给用户
+```
+
+问答阶段：
+
+```text
+/chat/data
+-> 如果请求体有 session_id
+-> get_profile(session_id)
+-> 找不到则返回 404
+-> 找到则调用 run_agent(question, profile)
+```
+
+兼容旧方式：
+
+```text
+/chat/data
+-> 如果没有 session_id，但有 profile
+-> 直接调用 run_agent(question, profile)
+```
+
+错误处理：
+
+```text
+/chat/data
+-> 如果 session_id 和 profile 都没有
+-> 返回 400
+```
+
+### 关键代码解释
+
+核心文件：
+
+```text
+app/services/session_store.py
+```
+
+核心结构：
+
+```python
+_SESSION_PROFILES: dict[str, dict] = {}
+```
+
+这里用全局字典保存 `session_id -> profile` 的映射。
+
+创建 session：
+
+```python
+def create_session(profile: dict) -> str:
+    session_id = str(uuid4())
+    _SESSION_PROFILES[session_id] = profile
+    return session_id
+```
+
+关键点：
+
+- `uuid4()` 用于生成随机、不容易重复的 session_id。
+- profile 保存在内存字典里。
+- 返回 session_id 给接口层。
+
+读取 profile：
+
+```python
+def get_profile(session_id: str) -> dict | None:
+    return _SESSION_PROFILES.get(session_id)
+```
+
+关键点：
+
+- 找到就返回 profile。
+- 找不到返回 `None`，由接口层转换成 404。
+
+接口层逻辑：
+
+```python
+if request.session_id:
+    profile = get_profile(request.session_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+elif request.profile:
+    profile = request.profile
+else:
+    raise HTTPException(
+        status_code=400,
+        detail="Either session_id or profile is required",
+    )
+```
+
+这段代码同时支持新旧两种调用方式。
+
+### 哪些地方是必须理解的核心逻辑
+
+- 上传 CSV 后，后端不仅返回 profile，还把 profile 缓存在 session_store 中。
+- `session_id` 是后续问答找到 profile 的索引。
+- `/chat/data` 优先使用 `session_id`，没有 `session_id` 时才使用旧的 `profile` 方式。
+- session 不存在时返回 404，不应该让 Agent 继续执行。
+- session_id 和 profile 都没有时返回 400，因为请求缺少必要上下文。
+
+### 哪些地方是框架/库的固定写法
+
+- `uuid4()`：Python 标准库生成随机 UUID 的固定写法。
+- `dict.get(key)`：从字典中安全读取值，找不到返回 `None`。
+- `BaseModel`：Pydantic 请求模型写法。
+- `HTTPException(status_code=..., detail=...)`：FastAPI 返回错误状态码的固定写法。
+
+### 我为什么这样设计
+
+当前阶段不引入数据库、Redis、LangChain 或 LangGraph，原因是项目目标是先完成一个可运行、可测试、可面试讲解的 MVP。
+
+内存字典方案的优点：
+
+- 实现简单。
+- 不增加依赖。
+- 测试容易写。
+- 能清楚展示 session_id 的基本思想。
+- 后续可以平滑替换为 Redis、SQLite 或 PostgreSQL。
+
+同时保留旧的 `question + profile` 方式，是为了向后兼容已有调用方式和测试。
+
+### 可能出现的错误和异常情况
+
+`session_id` 不存在：
+
+```text
+返回 404
+detail: Session not found
+```
+
+请求中既没有 `session_id`，也没有 `profile`：
+
+```text
+返回 400
+detail: Either session_id or profile is required
+```
+
+服务重启：
+
+```text
+内存字典被清空，原来的 session_id 会失效
+```
+
+多进程部署：
+
+```text
+不同进程有不同内存，session_id 可能只在某一个进程中存在
+```
+
+长期运行：
+
+```text
+当前没有过期时间，session 可能持续占用内存
+```
+
+### 如何测试这个模块是否正常
+
+测试文件：
+
+```text
+tests/test_session_chat.py
+tests/test_profile_upload.py
+```
+
+测试场景：
+
+- 上传 CSV 后返回 `session_id`。
+- `session_id` 是非空字符串。
+- 原有 profile 字段仍然存在。
+- 使用 `question + session_id` 调用 `/chat/data` 能正常选择 `missing_value_analysis`。
+- 不存在的 `session_id` 返回 404。
+- 旧的 `question + profile` 方式仍然可用。
+- `session_id` 和 `profile` 都不传时返回 400。
+
+运行命令：
+
+```bash
+.venv/bin/pytest
+```
+
+### 如果让我手写一个简化版，我会怎么写
+
+```python
+from uuid import uuid4
+
+sessions = {}
+
+
+def create_session(profile):
+    session_id = str(uuid4())
+    sessions[session_id] = profile
+    return session_id
+
+
+def get_profile(session_id):
+    return sessions.get(session_id)
+
+
+def delete_session(session_id):
+    if session_id not in sessions:
+        return False
+    del sessions[session_id]
+    return True
+```
+
+接口中使用：
+
+```python
+if session_id:
+    profile = get_profile(session_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+elif profile:
+    pass
+else:
+    raise HTTPException(status_code=400, detail="Either session_id or profile is required")
+```
+
+### 面试官可能追问的问题
+
+为什么不用数据库或 Redis？
+
+回答思路：
+
+当前是 MVP 和面试展示阶段，内存字典足够验证 session_id 流程，而且没有额外部署成本。生产环境会替换成 Redis 或数据库。
+
+内存 session 有什么问题？
+
+回答思路：
+
+服务重启会丢失，多进程不共享，没有 TTL，也不能持久化历史记录。
+
+为什么还保留直接传 profile 的旧方式？
+
+回答思路：
+
+这是为了向后兼容已有接口和测试，也方便调试 Agent。新方式推荐用 session_id，旧方式作为兼容入口。
+
+如果换成 Redis 怎么改？
+
+回答思路：
+
+保留 `create_session/get_profile/delete_session` 这三个函数签名不变，把内部的全局字典替换成 Redis 的 `set/get/delete`，并给 session 设置 TTL。
+
+如果换成数据库怎么改？
+
+回答思路：
+
+新增 session 表，字段可以包括 `session_id`、`profile_json`、`created_at`、`updated_at`。接口层不用大改，只替换 session_store 的内部实现。
 
 ## 8. 工具注册表为什么这样设计
 
@@ -442,7 +824,7 @@ Agent 确定工具名和参数
 当前测试结果：
 
 ```text
-14 passed
+18 passed
 ```
 
 测试文件：
@@ -451,6 +833,7 @@ Agent 确定工具名和参数
 - `tests/test_data_profile.py`
 - `tests/test_tools_agent.py`
 - `tests/test_report_service.py`
+- `tests/test_session_chat.py`
 
 覆盖场景：
 
@@ -466,6 +849,10 @@ Agent 确定工具名和参数
 - Agent 完成一次工具调用闭环。
 - Agent 处理非法 JSON。
 - Markdown 报告包含核心章节。
+- 上传 CSV 后返回 session_id。
+- 使用 session_id 调用 `/chat/data`。
+- session_id 不存在时返回 404。
+- 旧的 question + profile 方式仍然可用。
 
 pytest 固定写法：
 
@@ -488,7 +875,9 @@ pytest 固定写法：
 
 ## 17. 项目不足
 
-- 当前 `/chat/data` 不保存会话，需要调用方传入 profile。
+- 当前 session_store 使用内存字典，服务重启后 session 会丢失。
+- 多进程或多实例部署时，内存 session 不共享。
+- 当前 session 没有过期时间，也没有持久化历史记录。
 - 工具选择默认是规则判断，不是真正由 LLM 自动决策。
 - `/chat` 的真实 LLM 调用没有测试覆盖。
 - 没有数据库，无法保存上传历史和分析报告。
@@ -499,7 +888,7 @@ pytest 固定写法：
 
 优先级建议：
 
-1. 增加 `session_id`，上传 CSV 后缓存 profile。
+1. 将内存 session_store 升级为 Redis、SQLite 或 PostgreSQL。
 2. 让 LLM 输出 JSON 工具选择结果，并用规则作为 fallback。
 3. 增加评估集，测试工具选择准确率和报告完整性。
 4. 增加更多工具，例如异常值检测、字段相关性分析、分组统计。
@@ -513,7 +902,7 @@ pytest 固定写法：
 
 ```text
 DataInsight-Agent：基于 FastAPI + pandas + pytest 实现的轻量级 CSV 数据分析 Agent。
-支持 CSV 上传、数据画像、缺失值分析、数值摘要、规则版工具选择、
+支持 CSV 上传、session_id 会话缓存、数据画像、缺失值分析、数值摘要、规则版工具选择、
 工具调用轨迹记录和 Markdown 报告生成。
 设计了统一 Tool Registry，将数据分析能力封装为可调用工具，
 并通过 pytest 覆盖上传、画像、工具调用、异常处理和报告生成等核心场景。
@@ -523,7 +912,7 @@ DataInsight-Agent：基于 FastAPI + pandas + pytest 实现的轻量级 CSV 数�
 
 ```text
 实现一个轻量级 CSV 数据分析 Agent，使用 FastAPI 提供接口，
-pandas 完成数据画像，Tool Registry 管理分析工具，
+pandas 完成数据画像，内存 session_store 缓存上传后的 profile，Tool Registry 管理分析工具，
 Agent 根据问题选择工具并记录调用轨迹，支持 Markdown 报告生成和 pytest 自动化测试。
 ```
 
