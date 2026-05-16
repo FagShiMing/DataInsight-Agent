@@ -52,6 +52,69 @@ def test_chat_data_with_session_id_uses_cached_profile():
     assert response["tool_trace"][0]["status"] == "success"
 
 
+def test_chat_data_defaults_to_rule_tool_choice(monkeypatch):
+    upload_response = upload_sample_csv()
+    session_id = upload_response["session_id"]
+    received = {}
+
+    def fake_run_agent(**kwargs):
+        received.update(kwargs)
+        return {
+            "answer": "ok",
+            "tool_name": "missing_value_analysis",
+            "tool_trace": [],
+        }
+
+    monkeypatch.setattr("app.main.run_agent", fake_run_agent)
+
+    try:
+        chat_with_data(
+            DataChatRequest(
+                question="哪些字段有缺失值？",
+                session_id=session_id,
+            )
+        )
+    finally:
+        delete_session(session_id)
+
+    assert received["use_llm_tool_choice"] is False
+
+
+def test_chat_data_can_enable_llm_tool_choice(monkeypatch):
+    upload_response = upload_sample_csv()
+    session_id = upload_response["session_id"]
+    received = {}
+
+    def fake_run_agent(**kwargs):
+        received.update(kwargs)
+        return {
+            "answer": "ok",
+            "tool_name": "missing_value_analysis",
+            "tool_trace": [
+                {
+                    "tool_choice_source": "llm",
+                    "fallback_used": False,
+                }
+            ],
+        }
+
+    monkeypatch.setattr("app.main.run_agent", fake_run_agent)
+
+    try:
+        response = chat_with_data(
+            DataChatRequest(
+                question="哪些字段有缺失值？",
+                session_id=session_id,
+                use_llm_tool_choice=True,
+            )
+        )
+    finally:
+        delete_session(session_id)
+
+    assert received["use_llm_tool_choice"] is True
+    assert response["tool_trace"][0]["tool_choice_source"] == "llm"
+
+
 def test_chat_data_unknown_session_id_returns_404():
     try:
         chat_with_data(

@@ -26,6 +26,7 @@ class DataChatRequest(BaseModel):
     profile: dict | None = None
     session_id: str | None = None
     llm_tool_choice_json: str | None = None
+    use_llm_tool_choice: bool = False
 
 
 class ReportGenerateRequest(BaseModel):
@@ -124,6 +125,7 @@ def chat_with_data(request: DataChatRequest):
         question=request.question,
         profile=profile,
         llm_tool_choice_json=request.llm_tool_choice_json,
+        use_llm_tool_choice=request.use_llm_tool_choice,
     )
 
 
