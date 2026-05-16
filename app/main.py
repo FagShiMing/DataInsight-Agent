@@ -5,17 +5,31 @@ import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from app.services.agent_service import run_agent
 from app.services.data_profile import analyze_csv, profile_dataframe
+from app.services.report_service import generate_markdown_report
 
 app = FastAPI(
     title="DataInsight Agent",
-    description="A RAG and Tool Calling based data insight assistant.",
+    description="A lightweight CSV data analysis Agent.",
     version="0.1.0",
 )
 
 
 class ChatRequest(BaseModel):
     message: str
+
+
+class DataChatRequest(BaseModel):
+    question: str
+    profile: dict
+    llm_tool_choice_json: str | None = None
+
+
+class ReportGenerateRequest(BaseModel):
+    profile: dict
+    insights: str | None = None
+    tool_trace: list[dict] | None = None
 
 
 @app.get("/health")
@@ -78,9 +92,31 @@ async def upload_csv_profile(file: UploadFile = File(...)):
         "columns": profile["column_names"],
         "dtypes": profile["dtypes"],
         "missing_values": profile["missing_values"],
+        "missing_rate": profile["missing_rate"],
         "numeric_summary": profile["numeric_summary"],
+        "categorical_summary": profile["categorical_summary"],
         "preview": profile["preview"],
     }
+
+
+@app.post("/chat/data")
+def chat_with_data(request: DataChatRequest):
+    # 当前 MVP 不保存会话状态，调用方把 /profile/upload 的结果传回来即可。
+    return run_agent(
+        question=request.question,
+        profile=request.profile,
+        llm_tool_choice_json=request.llm_tool_choice_json,
+    )
+
+
+@app.post("/report/generate")
+def generate_report_api(request: ReportGenerateRequest):
+    markdown = generate_markdown_report(
+        profile=request.profile,
+        insights=request.insights,
+        tool_trace=request.tool_trace,
+    )
+    return {"markdown": markdown}
 
 
 @app.get("/analyze-csv")

@@ -30,15 +30,36 @@ def profile_dataframe(df: pd.DataFrame) -> dict:
     missing_values = {
         column: int(count) for column, count in df.isna().sum().items()
     }
+    missing_rate = {}
+    for column, count in missing_values.items():
+        if row_count == 0:
+            missing_rate[column] = 0.0
+        else:
+            missing_rate[column] = round(count / row_count, 4)
 
     # 3. 只对数值列计算简单统计信息。
     numeric_df = df.select_dtypes(include="number")
     numeric_summary = {}
     for column in numeric_df.columns:
         numeric_summary[column] = {
+            "count": int(numeric_df[column].count()),
             "mean": _to_json_number(numeric_df[column].mean()),
             "min": _to_json_number(numeric_df[column].min()),
             "max": _to_json_number(numeric_df[column].max()),
+            "median": _to_json_number(numeric_df[column].median()),
+            "std": _to_json_number(numeric_df[column].std()),
+        }
+
+    # 4. 类别列的高频值对后续 LLM 总结和报告很有用，但不需要复杂建模。
+    categorical_df = df.select_dtypes(exclude="number")
+    categorical_summary = {}
+    for column in categorical_df.columns:
+        top_values = categorical_df[column].dropna().value_counts().head(5)
+        categorical_summary[column] = {
+            "unique_count": int(categorical_df[column].nunique(dropna=True)),
+            "top_values": {
+                str(value): int(count) for value, count in top_values.items()
+            },
         }
 
     return {
@@ -47,7 +68,9 @@ def profile_dataframe(df: pd.DataFrame) -> dict:
         "column_names": column_names,
         "dtypes": dtypes,
         "missing_values": missing_values,
+        "missing_rate": missing_rate,
         "numeric_summary": numeric_summary,
+        "categorical_summary": categorical_summary,
         "preview": _preview_records(df),
     }
 
