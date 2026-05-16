@@ -788,7 +788,426 @@ Agent 确定工具名和参数
 
 设计重点：轨迹让 Agent 不再是黑盒，面试时可以清楚解释“系统为什么调用这个工具”。
 
-## 14. 异常处理做了哪些
+## 14. 工具选择评估集与评估脚本
+
+### 1. 这个模块解决什么问题
+
+Agent 项目不能只停留在“能调用工具”，还需要回答一个更关键的问题：
+
+```text
+用户提出一个问题时，Agent 选的工具是否正确？
+```
+
+工具选择评估集与评估脚本解决的是“如何用一批固定问题，评估 Agent 工具选择准确率”的问题。
+
+当前项目已经有规则版工具选择逻辑：
+
+```text
+choose_tool_by_rules(question)
+```
+
+但如果没有评估集，就只能靠手动试几个问题，很难说明工具选择是否稳定。评估集可以让项目具备可量化的 Agent 评估能力。
+
+当前先评估规则版工具选择，原因是：
+
+- 规则版不依赖 LLM，不会受网络、API Key 或模型随机性的影响。
+- 可以先建立稳定 baseline。
+- 后续接入 LLM 工具选择后，可以和规则版 baseline 对比。
+- 规则版结果可复现，适合写自动化测试。
+
+### 2. 输入是什么
+
+评估数据文件：
+
+```text
+eval/tool_choice_cases.jsonl
+```
+
+每一行是一个 JSON：
+
+```json
+{"question": "哪些字段有缺失值？", "expected_tool": "missing_value_analysis"}
+```
+
+字段说明：
+
+- `question`：用户问题。
+- `expected_tool`：期望 Agent 选择的工具名。
+
+当前评估集包含 16 条样例，覆盖 4 类工具：
+
+- `missing_value_analysis`
+- `numeric_summary`
+- `generate_report`
+- `answer_data_question`
+
+评估函数还需要一个固定的 sample profile，用来模拟用户已经上传 CSV 后生成的数据画像。
+
+### 3. 输出是什么
+
+评估脚本输出：
+
+```text
+Tool choice evaluation
+total_cases: 16
+correct: 16
+accuracy: 1.0000
+
+Failed cases:
+- none
+```
+
+评估函数返回结构：
+
+```json
+{
+  "total_cases": 16,
+  "correct": 16,
+  "accuracy": 1.0,
+  "failed_cases": []
+}
+```
+
+字段含义：
+
+- `total_cases`：评估样例总数。
+- `correct`：实际工具和期望工具一致的数量。
+- `accuracy`：工具选择准确率。
+- `failed_cases`：选择失败的案例列表。
+
+准确率计算公式：
+
+```text
+accuracy = correct / total_cases
+```
+
+### 4. 核心执行流程
+
+命令行运行：
+
+```bash
+python scripts/evaluate_tool_choice.py
+```
+
+执行流程：
+
+```text
+读取 eval/tool_choice_cases.jsonl
+-> 构造 sample_profile
+-> 遍历每条 case
+-> 调用 run_agent(question, profile, use_llm_tool_choice=False)
+-> 读取实际 tool_name
+-> 和 expected_tool 对比
+-> 统计 total_cases / correct / accuracy / failed_cases
+-> 打印评估结果
+```
+
+当前明确使用：
+
+```python
+use_llm_tool_choice=False
+```
+
+所以评估的是规则版工具选择，不会真实调用智谱 API。
+
+### 5. 关键代码解释
+
+核心脚本：
+
+```text
+scripts/evaluate_tool_choice.py
+```
+
+读取评估集：
+
+```python
+def load_cases(path) -> list[dict]:
+    cases = []
+    with Path(path).open("r", encoding="utf-8") as file:
+        for line_number, line in enumerate(file, start=1):
+            line = line.strip()
+            if not line:
+                continue
+
+            case = json.loads(line)
+            if "question" not in case or "expected_tool" not in case:
+                raise ValueError(...)
+            cases.append(case)
+    return cases
+```
+
+关键点：
+
+- JSONL 一行一个样例，方便持续追加。
+- 每条样例必须包含 `question` 和 `expected_tool`。
+- 读取阶段就做基础校验，避免评估结果不可信。
+
+构造固定 profile：
+
+```python
+def sample_profile() -> dict:
+    return {
+        "shape": {"rows": 5, "columns": 5},
+        "columns": ["date", "product", "region", "sales", "profit"],
+        "missing_values": {...},
+        "numeric_summary": {...}
+    }
+```
+
+关键点：
+
+- 不依赖真实上传接口。
+- 不依赖外部 API。
+- 保证评估可重复运行。
+
+读取实际工具名：
+
+```python
+def _actual_tool_name(agent_response: dict) -> str | None:
+    if agent_response.get("tool_name"):
+        return agent_response["tool_name"]
+
+    tool_trace = agent_response.get("tool_trace", [])
+    if tool_trace:
+        return tool_trace[-1].get("tool_name")
+
+    return None
+```
+
+关键点：
+
+- 优先读取 `response["tool_name"]`。
+- 如果没有，再从 `tool_trace` 兜底读取。
+- 这样对 Agent 返回结构更稳。
+
+评估函数：
+
+```python
+def evaluate_tool_choice(cases, profile) -> dict:
+    failed_cases = []
+    correct = 0
+
+    for case in cases:
+        response = run_agent(
+            question=case["question"],
+            profile=profile,
+            use_llm_tool_choice=False,
+        )
+        actual_tool = _actual_tool_name(response)
+        expected_tool = case["expected_tool"]
+
+        if actual_tool == expected_tool:
+            correct += 1
+        else:
+            failed_cases.append(...)
+
+    accuracy = correct / total_cases if total_cases else 0.0
+```
+
+关键点：
+
+- 每条 case 都走真实 `run_agent`。
+- 当前不调用 LLM。
+- 失败案例会保留 question、expected_tool、actual_tool。
+
+### 6. 哪些地方是必须理解的核心逻辑
+
+- Agent 项目需要评估集，因为工具选择是否正确必须可量化。
+- 每条评估样例由 `question` 和 `expected_tool` 组成。
+- `run_agent` 是真实被评估对象。
+- 当前使用 `use_llm_tool_choice=False`，所以评估的是规则版 baseline。
+- `accuracy = correct / total_cases`。
+- `failed_cases` 是后续优化规则、prompt 或工具描述的重要依据。
+- 当前准确率 `1.0000` 只说明这 16 条固定样例全部选对，不代表真实用户问题永远满分。
+
+### 7. 哪些地方是框架/库的固定写法
+
+- `json.loads(line)`：解析 JSON 字符串。
+- `Path(...).open(..., encoding="utf-8")`：读取 UTF-8 文件。
+- `if __name__ == "__main__": main()`：让脚本既能被导入测试，也能命令行运行。
+- pytest 中用 `assert` 验证结果字段和 accuracy 范围。
+- JSONL 格式本身是一种常见评估数据组织方式。
+
+### 8. 我为什么这样设计
+
+我没有引入复杂评估框架，而是用 JSONL + Python 脚本，是因为当前阶段的目标是轻量、可读、可运行。
+
+这样设计的好处：
+
+- 学习成本低。
+- 评估数据容易追加。
+- 评估逻辑能被 pytest 直接导入测试。
+- 不依赖 LLM，不依赖网络。
+- 可以先形成规则版 baseline。
+- 后续扩展到 LLM 工具选择评估时，不需要重写整个评估流程。
+
+为什么先评估规则版：
+
+- 规则版是当前最稳定的工具选择方式。
+- 它能作为 LLM 工具选择的对照组。
+- 如果规则版在固定样例上都选不准，就不应该急着评估 LLM。
+
+### 9. 可能出现的错误和异常情况
+
+JSONL 中某一行不是合法 JSON：
+
+```text
+json.loads 会抛出 JSONDecodeError
+```
+
+某条 case 缺少字段：
+
+```text
+load_cases 会抛出 ValueError
+```
+
+`expected_tool` 写错：
+
+```text
+评估结果会出现 failed_cases
+```
+
+问题表达超出规则覆盖范围：
+
+```text
+规则版可能选择 answer_data_question，导致准确率下降
+```
+
+Agent 返回结构变化：
+
+```text
+_actual_tool_name 先读 tool_name，再从 tool_trace 兜底，降低结构变化带来的风险
+```
+
+### 10. 如何测试这个模块是否正常
+
+测试文件：
+
+```text
+tests/test_evaluate_tool_choice.py
+```
+
+测试内容：
+
+- 可以读取 `eval/tool_choice_cases.jsonl`。
+- 每条样例都有 `question` 和 `expected_tool`。
+- `evaluate_tool_choice` 返回 `total_cases`、`correct`、`accuracy`、`failed_cases`。
+- `accuracy` 在 0 到 1 之间。
+- 默认评估文件路径存在。
+
+运行测试：
+
+```bash
+.venv/bin/pytest
+```
+
+单独运行评估：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py
+```
+
+当前评估结果：
+
+```text
+total_cases: 16
+correct: 16
+accuracy: 1.0000
+```
+
+### 11. 如果让我手写一个简化版，我会怎么写
+
+```python
+import json
+
+from app.services.agent_service import run_agent
+
+
+def load_cases(path):
+    cases = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            cases.append(json.loads(line))
+    return cases
+
+
+def evaluate(cases, profile):
+    correct = 0
+    failed = []
+
+    for case in cases:
+        response = run_agent(
+            question=case["question"],
+            profile=profile,
+            use_llm_tool_choice=False,
+        )
+        actual = response.get("tool_name")
+        expected = case["expected_tool"]
+
+        if actual == expected:
+            correct += 1
+        else:
+            failed.append({
+                "question": case["question"],
+                "expected_tool": expected,
+                "actual_tool": actual,
+            })
+
+    total = len(cases)
+    return {
+        "total_cases": total,
+        "correct": correct,
+        "accuracy": correct / total if total else 0,
+        "failed_cases": failed,
+    }
+```
+
+### 12. 面试官可能追问的问题
+
+为什么 Agent 项目需要评估集？
+
+回答思路：
+
+Agent 的关键能力不是“能不能调用工具”，而是“面对不同问题能不能选对工具”。评估集可以把这个能力量化，避免只靠手动演示。
+
+为什么当前准确率是 1.0000？
+
+回答思路：
+
+因为当前 16 条样例是围绕现有规则设计的固定样例，规则关键词覆盖得比较明确。这只代表当前评估集全对，不代表真实用户问题永远满分。
+
+`failed_cases` 有什么价值？
+
+回答思路：
+
+它能告诉我哪些问题没有选对工具。后续可以根据失败案例优化规则、改写工具描述、调整 LLM prompt 或补充新工具。
+
+为什么先评估规则版，不直接评估 LLM？
+
+回答思路：
+
+规则版稳定、可复现、不依赖外部 API。先建立 baseline，再评估 LLM，可以知道 LLM 是否真的比规则更好。
+
+后续如何扩展到 LLM 工具选择评估？
+
+回答思路：
+
+可以给 `evaluate_tool_choice` 增加参数 `use_llm_tool_choice=True`，调用同一批 case，统计 LLM 的工具选择准确率。同时记录 `fallback_used`、`fallback_reason` 和 `llm_choice_raw`。
+
+后续还可以增加哪些指标？
+
+回答思路：
+
+可以增加：
+
+- fallback 率
+- JSON 解析失败率
+- 工具不存在率
+- 工具调用成功率
+- 平均响应耗时
+- 每个工具的单独准确率
+
+## 15. 异常处理做了哪些
 
 ### CSV 上传接口
 
@@ -813,7 +1232,7 @@ Agent 确定工具名和参数
 - 参数缺失或错误：返回失败轨迹。
 - 工具执行失败：返回失败轨迹。
 
-## 15. 测试覆盖了哪些场景
+## 16. 测试覆盖了哪些场景
 
 当前测试命令：
 
@@ -824,7 +1243,7 @@ Agent 确定工具名和参数
 当前测试结果：
 
 ```text
-18 passed
+28 passed
 ```
 
 测试文件：
@@ -834,6 +1253,7 @@ Agent 确定工具名和参数
 - `tests/test_tools_agent.py`
 - `tests/test_report_service.py`
 - `tests/test_session_chat.py`
+- `tests/test_evaluate_tool_choice.py`
 
 覆盖场景：
 
@@ -853,6 +1273,9 @@ Agent 确定工具名和参数
 - 使用 session_id 调用 `/chat/data`。
 - session_id 不存在时返回 404。
 - 旧的 question + profile 方式仍然可用。
+- 工具选择评估集能正常读取。
+- 工具选择评估函数能返回准确率和失败案例。
+- 规则版工具选择评估脚本可运行。
 
 pytest 固定写法：
 
@@ -864,39 +1287,41 @@ pytest 固定写法：
 
 - 验证画像、工具选择、工具执行、轨迹和报告结果是否符合预期。
 
-## 16. 项目亮点
+## 17. 项目亮点
 
 - 不是只调 LLM，而是先用 pandas 做确定性分析。
 - Agent 工具调用流程清晰，有工具注册表和调用轨迹。
 - 不引入重型框架，适合解释底层原理。
 - 接口结构稳定，方便后续接前端或数据库。
 - 测试覆盖了核心业务闭环。
+- 新增工具选择评估脚本，可以量化 Agent 工具选择准确率。
 - Markdown 报告能直接作为分析产物展示。
 
-## 17. 项目不足
+## 18. 项目不足
 
 - 当前 session_store 使用内存字典，服务重启后 session 会丢失。
 - 多进程或多实例部署时，内存 session 不共享。
 - 当前 session 没有过期时间，也没有持久化历史记录。
 - 工具选择默认是规则判断，不是真正由 LLM 自动决策。
+- 当前评估集规模较小，16 条样例不能代表真实用户所有提问方式。
 - `/chat` 的真实 LLM 调用没有测试覆盖。
 - 没有数据库，无法保存上传历史和分析报告。
 - 没有前端，主要通过 Swagger 或 API 调用展示。
 - 当前报告是规则模板生成，智能分析深度有限。
 
-## 18. 后续优化方向
+## 19. 后续优化方向
 
 优先级建议：
 
 1. 将内存 session_store 升级为 Redis、SQLite 或 PostgreSQL。
 2. 让 LLM 输出 JSON 工具选择结果，并用规则作为 fallback。
-3. 增加评估集，测试工具选择准确率和报告完整性。
+3. 扩展评估集，增加更多真实问题表达和每个工具的单独准确率。
 4. 增加更多工具，例如异常值检测、字段相关性分析、分组统计。
 5. 接入数据库保存分析记录。
 6. 做一个极简前端或 Streamlit 展示页。
 7. 增加 LLM 生成自然语言洞察的测试 mock。
 
-## 19. 简历上可以怎么写
+## 20. 简历上可以怎么写
 
 较完整版本：
 
@@ -916,7 +1341,7 @@ pandas 完成数据画像，内存 session_store 缓存上传后的 profile，To
 Agent 根据问题选择工具并记录调用轨迹，支持 Markdown 报告生成和 pytest 自动化测试。
 ```
 
-## 20. 面试官可能追问的问题和回答思路
+## 21. 面试官可能追问的问题和回答思路
 
 ### Q1：为什么不用 LangChain / LangGraph？
 
