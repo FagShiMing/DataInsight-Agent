@@ -1,0 +1,16 @@
+{"question": "哪些字段有缺失值？", "expected_tool": "missing_value_analysis"}
+{"question": "缺失值情况怎么样？", "expected_tool": "missing_value_analysis"}
+{"question": "有没有空值需要处理？", "expected_tool": "missing_value_analysis"}
+{"question": "null 值多不多？", "expected_tool": "missing_value_analysis"}
+{"question": "数值字段的平均值是多少？", "expected_tool": "numeric_summary"}
+{"question": "sales 最大值是多少？", "expected_tool": "numeric_summary"}
+{"question": "profit 最小值是多少？", "expected_tool": "numeric_summary"}
+{"question": "数值列的中位数和标准差是多少？", "expected_tool": "numeric_summary"}
+{"question": "帮我生成一份 Markdown 分析报告", "expected_tool": "generate_report"}
+{"question": "请输出数据分析报告", "expected_tool": "generate_report"}
+{"question": "生成报告给我", "expected_tool": "generate_report"}
+{"question": "我要一份报告", "expected_tool": "generate_report"}
+{"question": "这个数据有多少行多少列？", "expected_tool": "answer_data_question"}
+{"question": "有哪些字段？", "expected_tool": "answer_data_question"}
+{"question": "字段类型是什么？", "expected_tool": "answer_data_question"}
+{"question": "简单介绍一下这份数据", "expected_tool": "answer_data_question"}

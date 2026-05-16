@@ -92,8 +92,13 @@ DataInsight-Agent/
 │   └── sample_sales.csv
 ├── docs/
 │   └── project_review.md
+├── eval/
+│   └── tool_choice_cases.jsonl
+├── scripts/
+│   └── evaluate_tool_choice.py
 ├── tests/
 │   ├── test_data_profile.py
+│   ├── test_evaluate_tool_choice.py
 │   ├── test_profile_upload.py
 │   ├── test_report_service.py
 │   ├── test_session_chat.py
@@ -114,6 +119,8 @@ DataInsight-Agent/
 - `app/services/llm_service.py`：智谱 LLM 调用封装。
 - `tests/`：pytest 测试。
 - `docs/project_review.md`：面试复盘材料。
+- `eval/tool_choice_cases.jsonl`：规则版工具选择评估样例。
+- `scripts/evaluate_tool_choice.py`：工具选择准确率评估脚本。
 
 ## Agent 工具调用流程
 
@@ -463,6 +470,7 @@ python -m pytest
 - 工具不存在时是否返回错误。
 - Agent 是否能完成一次工具调用闭环。
 - Agent 是否能处理非法 JSON。
+- 规则版工具选择评估脚本是否能正常读取样例并输出结果。
 - 上传 CSV 后是否返回 `session_id`。
 - `/chat/data` 是否支持 `question + session_id`。
 - 不存在的 `session_id` 是否返回 404。
@@ -472,7 +480,19 @@ python -m pytest
 当前验证结果：
 
 ```text
-18 passed
+28 passed
+```
+
+运行规则版工具选择评估：
+
+```bash
+python scripts/evaluate_tool_choice.py
+```
+
+如果使用项目虚拟环境：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py
 ```
 
 ## 示例输入输出
