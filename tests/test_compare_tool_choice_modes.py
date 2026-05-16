@@ -6,7 +6,11 @@ from scripts.compare_tool_choice_modes import (
     compare_results,
     main,
 )
-from scripts.evaluate_tool_choice import build_category_metrics, build_failure_analysis
+from scripts.evaluate_tool_choice import (
+    build_category_metrics,
+    build_failure_analysis,
+    build_subcategory_metrics,
+)
 
 
 def _case_result(
@@ -16,12 +20,14 @@ def _case_result(
     correct,
     question=None,
     category="missing_value",
+    subcategory="missing_vs_qa",
     error=None,
 ):
     return {
         "id": case_id,
         "question": question or f"question {case_id}",
         "category": category,
+        "subcategory": subcategory,
         "expected_tool": expected,
         "actual_tool": actual,
         "correct": correct,
@@ -39,6 +45,7 @@ def _evaluation_result(mode, case_results):
             4,
         ),
         "category_metrics": build_category_metrics(case_results),
+        "subcategory_metrics": build_subcategory_metrics(case_results),
         "failure_analysis": build_failure_analysis(case_results),
         "failed_cases": [case for case in case_results if not case["correct"]],
         "case_results": case_results,
@@ -182,6 +189,7 @@ def test_compare_results_counts_correct_wrong_and_differences():
     assert len(comparison["rule_wrong_llm_correct"]) == 1
     assert len(comparison["different_actual_tool"]) == 3
     assert comparison["different_actual_tool"][0]["category"] == "report_generation"
+    assert comparison["different_actual_tool"][0]["subcategory"] == "missing_vs_qa"
     assert comparison["different_actual_tool"][0]["rule_actual_tool"] == "numeric_summary"
 
 
@@ -364,6 +372,7 @@ def test_cli_verbose_runs(capsys, monkeypatch):
     assert report["comparison"]["status"] == "compared"
     assert "Different actual tool cases:" in output
     assert "category: report_generation" in output
+    assert "subcategory: missing_vs_qa" in output
     assert "llm_actual_tool: answer_data_question" in output
 
 

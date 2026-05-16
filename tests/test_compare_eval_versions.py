@@ -12,6 +12,7 @@ def _case_result(case_id, expected, before_or_after_actual, correct, category):
         "id": case_id,
         "question": f"question {case_id}",
         "category": category,
+        "subcategory": "regression_core",
         "expected_tool": expected,
         "actual_tool": before_or_after_actual,
         "correct": correct,

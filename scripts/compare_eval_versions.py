@@ -79,6 +79,7 @@ def _case_delta(before_case: dict, after_case: dict) -> dict:
         "id": before_case["id"],
         "question": before_case["question"],
         "category": before_case["category"],
+        "subcategory": before_case.get("subcategory"),
         "expected_tool": before_case["expected_tool"],
         "before_actual_tool": before_case.get("actual_tool"),
         "after_actual_tool": after_case.get("actual_tool"),
@@ -170,6 +171,7 @@ def _print_summary(report: dict, verbose: bool = False) -> None:
             print(f"- id: {case['id']}")
             print(f"  question: {case['question']}")
             print(f"  category: {case['category']}")
+            print(f"  subcategory: {case['subcategory']}")
             print(f"  expected_tool: {case['expected_tool']}")
             print(f"  before_actual_tool: {case['before_actual_tool']}")
             print(f"  after_actual_tool: {case['after_actual_tool']}")
@@ -182,6 +184,7 @@ def _print_summary(report: dict, verbose: bool = False) -> None:
             print(f"- id: {case['id']}")
             print(f"  question: {case['question']}")
             print(f"  category: {case['category']}")
+            print(f"  subcategory: {case['subcategory']}")
             print(f"  expected_tool: {case['expected_tool']}")
             print(f"  before_actual_tool: {case['before_actual_tool']}")
             print(f"  after_actual_tool: {case['after_actual_tool']}")

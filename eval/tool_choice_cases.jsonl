@@ -1,50 +1,50 @@
-{"question": "请读取 data/sample_sales.csv 并生成数据画像", "expected_tool": "profile_csv", "category": "profile_overview"}
-{"question": "分析一下 data/sample_sales.csv 这个 CSV 文件", "expected_tool": "profile_csv", "category": "profile_overview"}
-{"question": "帮我加载 data/sample_sales.csv 看看基础结构", "expected_tool": "profile_csv", "category": "profile_overview"}
-{"question": "对 data/sample_sales.csv 做一次基础画像", "expected_tool": "profile_csv", "category": "profile_overview"}
-{"question": "导入 data/sample_sales.csv 后先看数据概况", "expected_tool": "profile_csv", "category": "profile_overview"}
-{"question": "哪些字段有缺失值？", "expected_tool": "missing_value_analysis", "category": "missing_value"}
-{"question": "缺失值情况怎么样？", "expected_tool": "missing_value_analysis", "category": "missing_value"}
-{"question": "有没有空值需要处理？", "expected_tool": "missing_value_analysis", "category": "missing_value"}
-{"question": "null 值多不多？", "expected_tool": "missing_value_analysis", "category": "missing_value"}
-{"question": "哪些字段缺失比较严重", "expected_tool": "missing_value_analysis", "category": "missing_value"}
-{"question": "帮我检查一下数据完整性", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent"}
-{"question": "这个表有没有字段没填全", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent"}
-{"question": "字段质量有什么明显问题", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent"}
-{"question": "数据里有没有空白单元格", "expected_tool": "missing_value_analysis", "category": "missing_value"}
-{"question": "sales 这一列是不是有缺失", "expected_tool": "missing_value_analysis", "category": "missing_value"}
-{"question": "先帮我看看哪些列需要补数据", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent"}
-{"question": "数值字段的平均值是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "sales 最大值是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "profit 最小值是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "数值列的中位数和标准差是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "帮我总结一下销售额、利润这些数值列", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "销售额和利润的整体表现怎么样", "expected_tool": "numeric_summary", "category": "ambiguous_intent"}
-{"question": "用户年龄平均是多少", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "这些数字列大概是什么范围", "expected_tool": "numeric_summary", "category": "ambiguous_intent"}
-{"question": "利润的平均水平和波动情况如何", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "有哪些可统计的连续型字段", "expected_tool": "numeric_summary", "category": "ambiguous_intent"}
-{"question": "帮我看下数值分布的摘要", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "哪个数值字段最大值最高", "expected_tool": "numeric_summary", "category": "numeric_summary"}
-{"question": "帮我生成一份 Markdown 分析报告", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "请输出数据分析报告", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "生成报告给我", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "我要一份报告", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "生成一份可以发给老板看的报告", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "帮我做一个数据分析总结", "expected_tool": "generate_report", "category": "ambiguous_intent"}
-{"question": "把这份数据整理成汇报材料", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "请给我一版 markdown 结论文档", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "输出一份正式的数据复盘", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "我需要一段能直接放进周报的分析内容", "expected_tool": "generate_report", "category": "report_generation"}
-{"question": "这个数据有多少行多少列？", "expected_tool": "answer_data_question", "category": "data_question"}
-{"question": "有哪些字段？", "expected_tool": "answer_data_question", "category": "data_question"}
-{"question": "字段类型是什么？", "expected_tool": "answer_data_question", "category": "data_question"}
-{"question": "简单介绍一下这份数据", "expected_tool": "answer_data_question", "category": "data_question"}
-{"question": "帮我看看这个数据整体怎么样", "expected_tool": "answer_data_question", "category": "ambiguous_intent"}
-{"question": "这个表有什么问题", "expected_tool": "answer_data_question", "category": "ambiguous_intent"}
-{"question": "这份数据能看出什么结论", "expected_tool": "answer_data_question", "category": "ambiguous_intent"}
-{"question": "哪个字段最值得关注", "expected_tool": "answer_data_question", "category": "ambiguous_intent"}
-{"question": "这个 CSV 主要记录了什么", "expected_tool": "answer_data_question", "category": "data_question"}
-{"question": "先给我一个整体数据概览", "expected_tool": "answer_data_question", "category": "ambiguous_intent"}
-{"question": "如果只看当前画像，你能回答什么", "expected_tool": "answer_data_question", "category": "data_question"}
-{"question": "这些字段分别代表什么信息", "expected_tool": "answer_data_question", "category": "data_question"}
+{"question": "请读取 data/sample_sales.csv 并生成数据画像", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "regression_core"}
+{"question": "分析一下 data/sample_sales.csv 这个 CSV 文件", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "regression_core"}
+{"question": "帮我加载 data/sample_sales.csv 看看基础结构", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "profile_vs_data_question"}
+{"question": "对 data/sample_sales.csv 做一次基础画像", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "regression_core"}
+{"question": "导入 data/sample_sales.csv 后先看数据概况", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "ambiguous_overview"}
+{"question": "哪些字段有缺失值？", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "regression_core"}
+{"question": "缺失值情况怎么样？", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "missing_vs_qa"}
+{"question": "有没有空值需要处理？", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "missing_vs_qa"}
+{"question": "null 值多不多？", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "missing_vs_qa"}
+{"question": "哪些字段缺失比较严重", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "regression_core"}
+{"question": "帮我检查一下数据完整性", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "ambiguous_quality"}
+{"question": "这个表有没有字段没填全", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "missing_vs_qa"}
+{"question": "字段质量有什么明显问题", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "ambiguous_quality"}
+{"question": "数据里有没有空白单元格", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "missing_vs_qa"}
+{"question": "sales 这一列是不是有缺失", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "field_specific_question"}
+{"question": "先帮我看看哪些列需要补数据", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "ambiguous_quality"}
+{"question": "数值字段的平均值是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "regression_core"}
+{"question": "sales 最大值是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "field_specific_question"}
+{"question": "profit 最小值是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "field_specific_question"}
+{"question": "数值列的中位数和标准差是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "regression_core"}
+{"question": "帮我总结一下销售额、利润这些数值列", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "numeric_vs_business_question"}
+{"question": "销售额和利润的整体表现怎么样", "expected_tool": "numeric_summary", "category": "ambiguous_intent", "subcategory": "numeric_vs_business_question"}
+{"question": "用户年龄平均是多少", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "field_specific_question"}
+{"question": "这些数字列大概是什么范围", "expected_tool": "numeric_summary", "category": "ambiguous_intent", "subcategory": "numeric_vs_business_question"}
+{"question": "利润的平均水平和波动情况如何", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "numeric_vs_business_question"}
+{"question": "有哪些可统计的连续型字段", "expected_tool": "numeric_summary", "category": "ambiguous_intent", "subcategory": "numeric_vs_business_question"}
+{"question": "帮我看下数值分布的摘要", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "numeric_vs_business_question"}
+{"question": "哪个数值字段最大值最高", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "field_specific_question"}
+{"question": "帮我生成一份 Markdown 分析报告", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "regression_core"}
+{"question": "请输出数据分析报告", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "生成报告给我", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "regression_core"}
+{"question": "我要一份报告", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "生成一份可以发给老板看的报告", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "regression_core"}
+{"question": "帮我做一个数据分析总结", "expected_tool": "generate_report", "category": "ambiguous_intent", "subcategory": "report_vs_summary"}
+{"question": "把这份数据整理成汇报材料", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_profile"}
+{"question": "请给我一版 markdown 结论文档", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "输出一份正式的数据复盘", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "我需要一段能直接放进周报的分析内容", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "这个数据有多少行多少列？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "regression_core"}
+{"question": "有哪些字段？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "regression_core"}
+{"question": "字段类型是什么？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "field_specific_question"}
+{"question": "简单介绍一下这份数据", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "profile_vs_data_question"}
+{"question": "帮我看看这个数据整体怎么样", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "ambiguous_overview"}
+{"question": "这个表有什么问题", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "ambiguous_insight"}
+{"question": "这份数据能看出什么结论", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "ambiguous_insight"}
+{"question": "哪个字段最值得关注", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "field_specific_question"}
+{"question": "这个 CSV 主要记录了什么", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "profile_vs_data_question"}
+{"question": "先给我一个整体数据概览", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "ambiguous_overview"}
+{"question": "如果只看当前画像，你能回答什么", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "profile_vs_data_question"}
+{"question": "这些字段分别代表什么信息", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "field_specific_question"}

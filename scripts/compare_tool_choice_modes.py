@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from scripts.evaluate_tool_choice import (
     DEFAULT_CASES_PATH,
     build_category_metrics,
+    build_subcategory_metrics,
     evaluate_tool_choice,
     load_cases,
     sample_profile,
@@ -24,9 +25,11 @@ def _empty_llm_result(status: str = "skipped", error: str | None = None) -> dict
         "correct": None,
         "accuracy": None,
         "category_metrics": {},
+        "subcategory_metrics": {},
         "failure_analysis": {
             "total_failed": 0,
             "failed_by_category": {},
+            "failed_by_subcategory": {},
             "failed_by_expected_tool": {},
         },
         "failed_cases": [],
@@ -42,6 +45,7 @@ def _comparison_case(rule_case: dict, llm_case: dict) -> dict:
         "id": rule_case["id"],
         "question": rule_case["question"],
         "category": rule_case["category"],
+        "subcategory": rule_case["subcategory"],
         "expected_tool": rule_case["expected_tool"],
         "rule_actual_tool": rule_case.get("actual_tool"),
         "llm_actual_tool": llm_case.get("actual_tool"),
@@ -56,6 +60,12 @@ def _metrics_from_result(result: dict) -> dict:
     if result.get("category_metrics"):
         return result["category_metrics"]
     return build_category_metrics(result.get("case_results", []))
+
+
+def _subcategory_metrics_from_result(result: dict) -> dict:
+    if result.get("subcategory_metrics"):
+        return result["subcategory_metrics"]
+    return build_subcategory_metrics(result.get("case_results", []))
 
 
 def compare_results(rule_result: dict, llm_result: dict) -> dict:
@@ -218,6 +228,7 @@ def _print_summary(report: dict, verbose: bool = False) -> None:
             print(f"- id: {case['id']}")
             print(f"  question: {case['question']}")
             print(f"  category: {case['category']}")
+            print(f"  subcategory: {case['subcategory']}")
             print(f"  expected_tool: {case['expected_tool']}")
             print(f"  rule_actual_tool: {case['rule_actual_tool']}")
             print(f"  llm_actual_tool: {case['llm_actual_tool']}")

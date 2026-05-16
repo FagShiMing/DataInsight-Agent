@@ -1,0 +1,32 @@
+{"question": "你先帮我摸一下 data/sample_sales.csv 这份表的底", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "ambiguous_overview"}
+{"question": "data/sample_sales.csv 这个数据大概是个什么情况", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "ambiguous_overview"}
+{"question": "先别写报告，先看一下 data/sample_sales.csv 的表结构和整体质量", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "report_vs_profile"}
+{"question": "我刚拿到 data/sample_sales.csv，先帮我扫一眼", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "ambiguous_overview"}
+{"question": "data/sample_sales.csv 里面大概有哪些列，质量怎么样", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "profile_vs_data_question"}
+{"question": "这表是不是有很多地方没填", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "missing_vs_qa"}
+{"question": "有没有哪些列数据不完整", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "missing_vs_qa"}
+{"question": "哪些字段看起来缺得厉害", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "missing_vs_qa"}
+{"question": "完整率最差的是哪些字段", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "missing_vs_qa"}
+{"question": "这份表是不是漏了很多信息", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "ambiguous_quality"}
+{"question": "字段质量先帮我排个雷", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "ambiguous_quality"}
+{"question": "金额相关的字段大概什么水平", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "numeric_vs_business_question"}
+{"question": "销售额、利润这些数整体分布怎么样", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "numeric_vs_business_question"}
+{"question": "年龄和收入这种数值字段帮我统计一下", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "numeric_vs_business_question"}
+{"question": "我想知道这些数有没有特别大或特别小的", "expected_tool": "numeric_summary", "category": "ambiguous_intent", "subcategory": "numeric_vs_business_question"}
+{"question": "这些指标的高低水平先给我量化一下", "expected_tool": "numeric_summary", "category": "ambiguous_intent", "subcategory": "numeric_vs_business_question"}
+{"question": "整理成一份能发出去的分析材料", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "帮我写成一份汇报稿", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "最后给我一个正式点的分析结论", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "我要拿给老板看，帮我组织成报告", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_summary"}
+{"question": "把分析内容整理得像交付材料一点", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "report_vs_profile"}
+{"question": "这个数据能说明业务哪里有问题", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "business_insight"}
+{"question": "哪个因素可能最影响结果", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "business_insight"}
+{"question": "有没有什么值得优先关注的业务信号", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "business_insight"}
+{"question": "从这个表里能看出哪些异常趋势", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "business_insight"}
+{"question": "帮我总结一下这个数据", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "report_vs_summary"}
+{"question": "这个表有什么问题需要先看", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "ambiguous_insight"}
+{"question": "销售额有什么问题", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "numeric_vs_business_question"}
+{"question": "给我一个结论", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "ambiguous_insight"}
+{"question": "先看业务信号，不要写报告", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "business_insight"}
+{"question": "这个数据质量和业务风险都帮我判断一下", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "ambiguous_quality"}
+{"question": "如果只能挑一个点展开分析，你会看哪里", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "business_insight"}

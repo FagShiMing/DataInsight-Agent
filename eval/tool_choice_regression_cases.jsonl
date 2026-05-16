@@ -1,0 +1,15 @@
+{"question": "请读取 data/sample_sales.csv 并生成数据画像", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "regression_core"}
+{"question": "帮我加载 data/sample_sales.csv 看看基础结构", "expected_tool": "profile_csv", "category": "profile_overview", "subcategory": "regression_core"}
+{"question": "哪些字段有缺失值？", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "regression_core"}
+{"question": "哪些字段缺失比较严重", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "regression_core"}
+{"question": "帮我检查一下数据完整性", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "regression_core"}
+{"question": "数值字段的平均值是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "regression_core"}
+{"question": "销售额和利润的整体表现怎么样", "expected_tool": "numeric_summary", "category": "ambiguous_intent", "subcategory": "regression_core"}
+{"question": "数值列的中位数和标准差是多少？", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "regression_core"}
+{"question": "帮我生成一份 Markdown 分析报告", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "regression_core"}
+{"question": "生成一份可以发给老板看的报告", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "regression_core"}
+{"question": "把这份数据整理成汇报材料", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "regression_core"}
+{"question": "这个数据有多少行多少列？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "regression_core"}
+{"question": "有哪些字段？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "regression_core"}
+{"question": "这份数据能看出什么结论", "expected_tool": "answer_data_question", "category": "ambiguous_intent", "subcategory": "regression_core"}
+{"question": "这份数据有什么值得关注的业务问题", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "regression_core"}

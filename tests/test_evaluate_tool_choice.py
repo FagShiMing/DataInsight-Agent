@@ -19,9 +19,11 @@ def test_load_tool_choice_cases_has_required_fields():
         assert "question" in case
         assert "expected_tool" in case
         assert "category" in case
+        assert "subcategory" in case
         assert case["question"]
         assert case["expected_tool"]
         assert case["category"] in ALLOWED_CATEGORIES
+        assert case["subcategory"]
 
 
 def test_evaluate_tool_choice_returns_summary_fields():
@@ -35,6 +37,7 @@ def test_evaluate_tool_choice_returns_summary_fields():
     assert "failed_cases" in result
     assert "case_results" in result
     assert "category_metrics" in result
+    assert "subcategory_metrics" in result
     assert "failure_analysis" in result
     assert isinstance(result["failed_cases"], list)
     assert isinstance(result["case_results"], list)
@@ -43,6 +46,7 @@ def test_evaluate_tool_choice_returns_summary_fields():
         "id",
         "question",
         "category",
+        "subcategory",
         "expected_tool",
         "actual_tool",
         "correct",
@@ -86,6 +90,7 @@ def test_rule_mode_does_not_call_llm(monkeypatch):
                 "question": "哪些字段有缺失值？",
                 "expected_tool": "missing_value_analysis",
                 "category": "missing_value",
+                "subcategory": "missing_vs_qa",
             }
         ],
         sample_profile(),
@@ -104,6 +109,7 @@ def test_cli_mode_rule_runs(monkeypatch, capsys):
                 "question": "哪些字段有缺失值？",
                 "expected_tool": "missing_value_analysis",
                 "category": "missing_value",
+                "subcategory": "missing_vs_qa",
             }
         ],
     )
@@ -156,6 +162,7 @@ def test_llm_mode_uses_mocked_agent_without_real_api(monkeypatch):
                 "question": "数值字段的平均值是多少？",
                 "expected_tool": "numeric_summary",
                 "category": "numeric_summary",
+                "subcategory": "numeric_vs_business_question",
             }
         ],
         sample_profile(),
@@ -190,6 +197,7 @@ def test_llm_mode_fallback_is_recorded_as_error(monkeypatch):
                 "question": "哪些字段有缺失值？",
                 "expected_tool": "missing_value_analysis",
                 "category": "missing_value",
+                "subcategory": "missing_vs_qa",
             }
         ],
         sample_profile(),
@@ -211,6 +219,7 @@ def test_output_writes_json_file(tmp_path, monkeypatch):
                 "question": "哪些字段有缺失值？",
                 "expected_tool": "missing_value_analysis",
                 "category": "missing_value",
+                "subcategory": "missing_vs_qa",
             }
         ],
     )
@@ -234,6 +243,7 @@ def test_output_writes_json_file(tmp_path, monkeypatch):
     data = json.loads(output_path.read_text(encoding="utf-8"))
     assert data["mode"] == "rule"
     assert "category_metrics" in data
+    assert "subcategory_metrics" in data
     assert "failure_analysis" in data
     assert data["case_results"][0]["actual_tool"] == "missing_value_analysis"
 
@@ -257,7 +267,8 @@ def test_load_cases_skips_empty_lines(tmp_path):
         (
             '\n{"question": "哪些字段有缺失值？", '
             '"expected_tool": "missing_value_analysis", '
-            '"category": "missing_value"}\n\n'
+            '"category": "missing_value", '
+            '"subcategory": "missing_vs_qa"}\n\n'
         ),
         encoding="utf-8",
     )
@@ -303,6 +314,7 @@ def test_failed_cases_include_debug_fields(monkeypatch):
                 "question": "哪些字段有缺失值？",
                 "expected_tool": "missing_value_analysis",
                 "category": "missing_value",
+                "subcategory": "missing_vs_qa",
             }
         ],
         sample_profile(),
@@ -312,6 +324,7 @@ def test_failed_cases_include_debug_fields(monkeypatch):
 
     assert failed_case["question"] == "哪些字段有缺失值？"
     assert failed_case["category"] == "missing_value"
+    assert failed_case["subcategory"] == "missing_vs_qa"
     assert failed_case["expected_tool"] == "missing_value_analysis"
     assert failed_case["actual_tool"] == "numeric_summary"
     assert "error" in failed_case
@@ -339,7 +352,8 @@ def test_load_cases_invalid_category_raises_value_error(tmp_path):
         (
             '{"question": "哪些字段有缺失值？", '
             '"expected_tool": "missing_value_analysis", '
-            '"category": "missing_values"}\n'
+            '"category": "missing_values", '
+            '"subcategory": "missing_vs_qa"}\n'
         ),
         encoding="utf-8",
     )
@@ -375,11 +389,13 @@ def test_category_metrics_contains_total_correct_accuracy(monkeypatch):
                 "question": "哪些字段有缺失值？",
                 "expected_tool": "missing_value_analysis",
                 "category": "missing_value",
+                "subcategory": "missing_vs_qa",
             },
             {
                 "question": "生成报告",
                 "expected_tool": "generate_report",
                 "category": "report_generation",
+                "subcategory": "report_vs_summary",
             },
         ],
         sample_profile(),
@@ -396,6 +412,17 @@ def test_category_metrics_contains_total_correct_accuracy(monkeypatch):
         "accuracy": 0.0,
     }
     assert result["failed_cases"][0]["category"] == "report_generation"
+    assert result["subcategory_metrics"]["missing_vs_qa"] == {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1.0,
+    }
+    assert result["subcategory_metrics"]["report_vs_summary"] == {
+        "total": 1,
+        "correct": 0,
+        "accuracy": 0.0,
+    }
+    assert result["failed_cases"][0]["subcategory"] == "report_vs_summary"
 
 
 def test_failure_analysis_counts_category_and_expected_tool(monkeypatch):
@@ -420,11 +447,13 @@ def test_failure_analysis_counts_category_and_expected_tool(monkeypatch):
                 "question": "生成报告",
                 "expected_tool": "generate_report",
                 "category": "report_generation",
+                "subcategory": "report_vs_summary",
             },
             {
                 "question": "数值字段平均值",
                 "expected_tool": "numeric_summary",
                 "category": "numeric_summary",
+                "subcategory": "numeric_vs_business_question",
             },
         ],
         sample_profile(),
@@ -436,7 +465,31 @@ def test_failure_analysis_counts_category_and_expected_tool(monkeypatch):
         "report_generation": 1,
         "numeric_summary": 1,
     }
+    assert analysis["failed_by_subcategory"] == {
+        "report_vs_summary": 1,
+        "numeric_vs_business_question": 1,
+    }
     assert analysis["failed_by_expected_tool"] == {
         "generate_report": 1,
         "numeric_summary": 1,
     }
+
+
+def test_load_cases_missing_subcategory_raises_value_error(tmp_path):
+    path = tmp_path / "bad_cases.jsonl"
+    path.write_text(
+        (
+            '{"question": "哪些字段有缺失值？", '
+            '"expected_tool": "missing_value_analysis", '
+            '"category": "missing_value"}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_cases(path)
+    except ValueError as exc:
+        assert "Line 1" in str(exc)
+        assert "missing subcategory" in str(exc)
+    else:
+        raise AssertionError("缺少 subcategory 时应该抛出 ValueError")

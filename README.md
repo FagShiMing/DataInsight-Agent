@@ -2,7 +2,7 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、评估版本对比、pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、hard / regression 评估集、评估版本对比、pytest 自动化测试。
 
 当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具；如果请求显式传入 `use_llm_tool_choice=true`，则会尝试使用 LLM 输出工具选择 JSON，并在失败时 fallback 到规则版。
 
@@ -227,6 +227,51 @@ regressed_cases: 0
 
 说明：V0.6 没有调用 LLM，只是基于 V0.5 暴露出来的失败分布做规则优化。当前 50 条评估集已全部命中，但这仍然只是当前评估集上的结果，不代表开放问题永远满分。
 
+## V0.7 当前能力总结
+
+V0.7 的目标是验证 V0.6 rule 规则是否过拟合原始 50 条 case。项目现在区分三类评估集：
+
+- `eval/tool_choice_cases.jsonl`：基础评估集，保留原始 50 条 case，并新增 `subcategory`。
+- `eval/tool_choice_hard_cases.jsonl`：更难、更开放、更口语化的评估集，用来暴露规则边界。
+- `eval/tool_choice_regression_cases.jsonl`：回归测试集，用来防止后续规则优化拉低稳定能力。
+
+V0.7 新增字段和指标：
+
+- `subcategory`：比 `category` 更细的问题类型。
+- `subcategory_metrics`：按 subcategory 统计 `total / correct / accuracy`。
+- `failed_by_subcategory`：失败样例按 subcategory 的分布。
+
+V0.7 rule 评估结果：
+
+```text
+base: total_cases=50, correct=50, accuracy=1.0000
+hard: total_cases=32, correct=17, accuracy=0.5312
+regression: total_cases=15, correct=15, accuracy=1.0000
+```
+
+hard cases 失败分布：
+
+```text
+failed_by_category:
+  profile_overview: 4
+  ambiguous_intent: 4
+  missing_value: 3
+  report_generation: 3
+  data_question: 1
+
+failed_by_subcategory:
+  ambiguous_overview: 3
+  missing_vs_qa: 3
+  numeric_vs_business_question: 3
+  report_vs_summary: 2
+  profile_vs_data_question: 1
+  ambiguous_quality: 1
+  report_vs_profile: 1
+  business_insight: 1
+```
+
+说明：hard cases 准确率低于 1.0 是可接受的。它的目的不是刷分，而是暴露规则系统在开放表达下的边界；regression cases 则用于保护已经稳定的核心能力。
+
 当前已有但不作为主要 Agent 流程的能力：
 
 - `/chat` 基础 LLM 聊天接口。
@@ -266,9 +311,14 @@ DataInsight-Agent/
 │   ├── history/
 │   │   ├── v0.5_rule_result.json
 │   │   ├── v0.5_vs_v0.6_rule_compare.json
-│   │   └── v0.6_rule_result.json
+│   │   ├── v0.6_rule_result.json
+│   │   ├── v0.7_base_rule_result.json
+│   │   ├── v0.7_hard_rule_result.json
+│   │   └── v0.7_regression_rule_result.json
 │   ├── tool_choice_cases.jsonl
 │   ├── tool_choice_compare_result.json
+│   ├── tool_choice_hard_cases.jsonl
+│   ├── tool_choice_regression_cases.jsonl
 │   └── tool_choice_result.json
 ├── scripts/
 │   ├── compare_eval_versions.py
@@ -278,6 +328,7 @@ DataInsight-Agent/
 │   ├── test_compare_eval_versions.py
 │   ├── test_compare_tool_choice_modes.py
 │   ├── test_data_profile.py
+│   ├── test_eval_case_schema.py
 │   ├── test_evaluate_tool_choice.py
 │   ├── test_llm_tool_choice.py
 │   ├── test_profile_upload.py
@@ -301,6 +352,8 @@ DataInsight-Agent/
 - `tests/`：pytest 测试。
 - `docs/project_review.md`：面试复盘材料。
 - `eval/tool_choice_cases.jsonl`：工具选择评估样例。
+- `eval/tool_choice_hard_cases.jsonl`：更难、更开放、更口语化的工具选择评估样例。
+- `eval/tool_choice_regression_cases.jsonl`：防止规则优化退化的核心回归样例。
 - `eval/tool_choice_compare_result.json`：工具选择对比脚本通过 `--output` 生成的 JSON 结果文件。
 - `eval/tool_choice_result.json`：单模式工具选择评估脚本通过 `--output` 生成的 JSON 结果文件。
 - `eval/history/`：保存不同版本的 rule 评估结果和版本对比结果。
@@ -660,7 +713,11 @@ python -m pytest
 - 工具选择评估脚本是否支持 `rule` / `llm` 模式。
 - 工具选择评估脚本是否能跳过空行、识别缺字段和 JSON 格式错误。
 - 工具选择评估脚本是否能校验 `category` 字段和非法分类。
-- 工具选择评估脚本是否能输出 `category_metrics` 和 `failure_analysis`。
+- 工具选择评估脚本是否能校验 `subcategory` 字段。
+- 工具选择评估脚本是否能输出 `category_metrics`、`subcategory_metrics` 和 `failure_analysis`。
+- 基础评估集、hard 评估集和 regression 评估集是否都符合 JSONL schema。
+- hard 评估集和 regression 评估集是否都能正常运行 rule 评估。
+- regression 评估集是否保持 rule accuracy 为 1.0。
 - 工具选择评估脚本是否能通过 `--output` 保存 JSON 结果。
 - LLM 工具选择评估是否可以通过 mock 测试，避免真实请求 API。
 - 工具选择对比脚本默认是否只运行 `rule` 模式。
@@ -677,7 +734,7 @@ python -m pytest
 当前验证结果：
 
 ```text
-60 passed
+65 passed
 ```
 
 ## 工具选择评估 / Tool Choice Evaluation
@@ -718,6 +775,7 @@ python scripts/evaluate_tool_choice.py
 - `correct`：工具选择正确的样例数。
 - `accuracy`：准确率。
 - `category_metrics`：按问题类型统计准确率。
+- `subcategory_metrics`：按更细的问题类型统计准确率。
 - `failure_analysis`：按 category 和 expected_tool 统计失败分布。
 - `failed_cases`：失败样例，包含问题、期望工具、实际工具和错误原因。
 
@@ -732,6 +790,20 @@ V0.5 给每条评估 case 增加了 `category`，用于区分问题类型：
 
 现在评估结果不仅能看总体 `accuracy`，也能看每一类问题的 `accuracy`。`failure_analysis` 可以帮助定位失败样例集中在哪些 category 和 expected_tool 上。
 
+V0.7 进一步增加了 `subcategory`，用于拆分更细的问题边界，例如：
+
+- `missing_vs_qa`
+- `report_vs_summary`
+- `report_vs_profile`
+- `numeric_vs_business_question`
+- `profile_vs_data_question`
+- `ambiguous_overview`
+- `ambiguous_quality`
+- `ambiguous_insight`
+- `field_specific_question`
+- `business_insight`
+- `regression_core`
+
 查看每条样例结果：
 
 ```bash
@@ -742,6 +814,32 @@ V0.5 给每条评估 case 增加了 `category`，用于区分问题类型：
 
 ```bash
 .venv/bin/python scripts/evaluate_tool_choice.py --mode rule --output eval/tool_choice_result.json
+```
+
+基础评估集：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_cases.jsonl
+```
+
+hard cases：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_hard_cases.jsonl
+```
+
+regression cases：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_regression_cases.jsonl
+```
+
+保存 V0.7 评估结果：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_cases.jsonl --output eval/history/v0.7_base_rule_result.json
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_hard_cases.jsonl --output eval/history/v0.7_hard_rule_result.json
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_regression_cases.jsonl --output eval/history/v0.7_regression_rule_result.json
 ```
 
 V0.4 新增 rule vs llm 对比脚本。默认只运行 `rule`，不会调用真实 LLM：
@@ -898,6 +996,7 @@ missing_value_analysis
 
 - 增加更多数据分析工具，例如异常值检测、相关性分析、分组统计。
 - 继续扩充工具选择评估集，加入更多真实表达、边界问题和容易混淆的问题。
+- 用 hard cases 暴露 rule 边界，用 regression cases 保护已稳定能力。
 - 基于 V0.5 的 `failure_analysis` 优先优化 `ambiguous_intent`、`report_generation` 等失败较多的类型。
 - 继续保留历史评估结果，用版本对比脚本观察每次规则或 prompt 修改是否引入退化。
 - 增加报告完整性和异常处理能力评估。
@@ -1351,3 +1450,88 @@ eval/history/v0.5_vs_v0.6_rule_compare.json
 - V0.6 把 V0.5 的失败分析转化成了可验证的规则优化。
 - 工具选择评估从“发现问题”进一步推进到“量化改进”。
 - 后续每次修改规则或 prompt 都可以复用版本对比脚本验证收益和退化。
+
+### 2026-05-17：V0.7 Hard Cases 与回归评估集
+
+目标：验证 V0.6 rule 规则是否过拟合原始 50 条 case，并建立更可信的评估体系。
+
+完成内容：
+
+- 保留原始基础评估集：
+
+```text
+eval/tool_choice_cases.jsonl
+```
+
+- 给基础评估集 50 条 case 增加 `subcategory` 字段。
+- 新增 hard 评估集：
+
+```text
+eval/tool_choice_hard_cases.jsonl
+```
+
+- 新增 regression 评估集：
+
+```text
+eval/tool_choice_regression_cases.jsonl
+```
+
+- 增强 `scripts/evaluate_tool_choice.py`：
+  - `load_cases()` 校验 `subcategory`。
+  - `case_results` 和 `failed_cases` 中保留 `subcategory`。
+  - 新增 `subcategory_metrics`。
+  - `failure_analysis` 新增 `failed_by_subcategory`。
+- 新增 `tests/test_eval_case_schema.py`，直接校验三个 JSONL 文件的 schema。
+- 保存 V0.7 三类评估结果：
+
+```text
+eval/history/v0.7_base_rule_result.json
+eval/history/v0.7_hard_rule_result.json
+eval/history/v0.7_regression_rule_result.json
+```
+
+真实运行结果：
+
+```text
+base: 50/50, accuracy=1.0000
+hard: 17/32, accuracy=0.5312
+regression: 15/15, accuracy=1.0000
+```
+
+hard cases 失败最多的类型：
+
+```text
+category:
+  profile_overview: 4
+  ambiguous_intent: 4
+
+subcategory:
+  ambiguous_overview: 3
+  missing_vs_qa: 3
+  numeric_vs_business_question: 3
+```
+
+当日核心产出：
+
+- `eval/tool_choice_cases.jsonl`
+- `eval/tool_choice_hard_cases.jsonl`
+- `eval/tool_choice_regression_cases.jsonl`
+- `eval/history/v0.7_base_rule_result.json`
+- `eval/history/v0.7_hard_rule_result.json`
+- `eval/history/v0.7_regression_rule_result.json`
+- `scripts/evaluate_tool_choice.py`
+- `scripts/compare_tool_choice_modes.py`
+- `scripts/compare_eval_versions.py`
+- `tests/test_eval_case_schema.py`
+- `README.md`
+
+当日技术点：
+
+- 评估集需要分层：基础集看主流程稳定性，hard 集看开放表达边界，regression 集防止规则退化。
+- hard cases 准确率低不是问题，它的价值是暴露下一轮优化方向。
+- `subcategory` 可以帮助进一步定位具体混淆类型。
+
+阶段价值：
+
+- V0.7 证明 V0.6 在基础集满分，但在更开放表达下仍有明显边界。
+- 项目评估体系从“单一准确率”升级为“基础评估 + hard 评估 + 回归保护”。
