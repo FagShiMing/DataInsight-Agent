@@ -2,7 +2,7 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、工具选择评估集和 pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、pytest 自动化测试。
 
 当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具；如果请求显式传入 `use_llm_tool_choice=true`，则会尝试使用 LLM 输出工具选择 JSON，并在失败时 fallback 到规则版。
 
@@ -79,6 +79,29 @@ accuracy: 1.0000
 
 说明：这个评估集是基础评估，只代表当前 16 条固定样例全部命中规则，不代表真实开放场景下工具选择永远满分。后续需要继续增加更多真实问题表达，并扩展到 LLM 工具选择评估。
 
+## V0.3 当前能力总结
+
+V0.3 在 V0.2 的规则版工具选择评估基础上，补充了可选 LLM 工具选择评估能力：
+
+- `rule` 模式：默认模式，只使用规则版工具选择，不需要 API Key，不调用真实 LLM。
+- `llm` 模式：复用 Agent 中已有的 `use_llm_tool_choice=True` 逻辑，用于观察模型是否能正确选择工具。
+- 每条评估样例都会记录：
+  - `id`
+  - `question`
+  - `expected_tool`
+  - `actual_tool`
+  - `correct`
+  - `error`
+- 整体评估指标包括：
+  - `total_cases`
+  - `correct`
+  - `accuracy`
+  - `failed_cases`
+  - `case_results`
+- 支持通过 `--output` 保存完整 JSON 评估结果，方便后续对比 rule 和 LLM 的稳定性。
+
+注意：`llm` 模式需要配置智谱 API Key。如果 API Key 缺失或 LLM 调用失败，评估脚本不会直接崩溃，而是把错误记录到对应 case 的 `error` 和 `failed_cases` 中。
+
 当前已有但不作为主要 Agent 流程的能力：
 
 - `/chat` 基础 LLM 聊天接口。
@@ -141,8 +164,8 @@ DataInsight-Agent/
 - `app/services/llm_service.py`：智谱 LLM 调用封装。
 - `tests/`：pytest 测试。
 - `docs/project_review.md`：面试复盘材料。
-- `eval/tool_choice_cases.jsonl`：规则版工具选择评估样例。
-- `scripts/evaluate_tool_choice.py`：工具选择准确率评估脚本。
+- `eval/tool_choice_cases.jsonl`：工具选择评估样例。
+- `scripts/evaluate_tool_choice.py`：工具选择准确率评估脚本，支持 `rule` 和 `llm` 两种模式。
 
 ## Agent 工具调用流程
 
@@ -492,7 +515,11 @@ python -m pytest
 - 工具不存在时是否返回错误。
 - Agent 是否能完成一次工具调用闭环。
 - Agent 是否能处理非法 JSON。
-- 规则版工具选择评估脚本是否能正常读取样例并输出结果。
+- 工具选择评估脚本是否能正常读取样例并输出结果。
+- 工具选择评估脚本是否支持 `rule` / `llm` 模式。
+- 工具选择评估脚本是否能跳过空行、识别缺字段和 JSON 格式错误。
+- 工具选择评估脚本是否能通过 `--output` 保存 JSON 结果。
+- LLM 工具选择评估是否可以通过 mock 测试，避免真实请求 API。
 - 上传 CSV 后是否返回 `session_id`。
 - `/chat/data` 是否支持 `question + session_id`。
 - 不存在的 `session_id` 是否返回 404。
@@ -502,10 +529,18 @@ python -m pytest
 当前验证结果：
 
 ```text
-28 passed
+37 passed
 ```
 
-运行规则版工具选择评估：
+## 工具选择评估 / Tool Choice Evaluation
+
+评估集文件：
+
+```text
+eval/tool_choice_cases.jsonl
+```
+
+默认运行方式是 `rule` 模式，只使用规则版工具选择，不需要 API Key，也不会调用真实 LLM：
 
 ```bash
 python scripts/evaluate_tool_choice.py
@@ -515,6 +550,37 @@ python scripts/evaluate_tool_choice.py
 
 ```bash
 .venv/bin/python scripts/evaluate_tool_choice.py
+```
+
+也可以显式指定 `rule` 模式：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule
+```
+
+`llm` 模式用于观察模型是否能根据问题正确选择工具，需要先配置智谱 API Key：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode llm
+```
+
+输出指标包括：
+
+- `total_cases`：评估样例总数。
+- `correct`：工具选择正确的样例数。
+- `accuracy`：准确率。
+- `failed_cases`：失败样例，包含问题、期望工具、实际工具和错误原因。
+
+查看每条样例结果：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --verbose
+```
+
+保存完整 JSON 结果：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --output eval/tool_choice_result.json
 ```
 
 ## 示例输入输出
@@ -612,9 +678,10 @@ missing_value_analysis
 
 ## 后续优化方向
 
-- 让 LLM 基于 `TOOL_REGISTRY` 输出 JSON 工具选择结果，并用规则选择作为 fallback。
 - 增加更多数据分析工具，例如异常值检测、相关性分析、分组统计。
-- 增加基础评估集，评估工具选择准确率、报告完整性和异常处理能力。
+- 扩充工具选择评估集，加入更多真实表达、边界问题和容易混淆的问题。
+- 增加报告完整性和异常处理能力评估。
+- 对比 rule 和 llm 两种工具选择模式在不同问题类型下的稳定性。
 - 将当前内存 session_store 升级为 Redis、SQLite 或 PostgreSQL，保存上传记录、工具调用轨迹和报告。
 - 增加极简前端或 Streamlit 页面，方便非技术用户演示。
 - 对 `/chat` LLM 调用增加 mock 测试，避免测试依赖真实外部 API。
@@ -865,3 +932,52 @@ POST /report/generate
 
 - 项目已经具备“上传 CSV -> 数据画像 -> 提问 -> 工具选择 -> 工具调用 -> 轨迹记录 -> 报告生成”的完整 MVP 闭环。
 - 当前 Agent 不依赖重型框架，便于学习、复盘和面试解释。
+
+### 2026-05-16：V0.3 工具选择评估升级
+
+目标：把工具选择评估从“只评估规则版基线”升级为“规则版基线 + 可选 LLM 工具选择评估”。
+
+完成内容：
+
+- 增强 `scripts/evaluate_tool_choice.py`：
+  - 新增 `--cases` 参数，用于指定评估集路径。
+  - 新增 `--mode rule|llm` 参数，默认仍为 `rule`。
+  - 新增 `--verbose` 参数，用于查看每条 case 的评估结果。
+  - 新增 `--output` 参数，用于保存 JSON 评估结果。
+- 保留默认规则版评估行为：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py
+```
+
+- 复用已有 `run_agent(..., use_llm_tool_choice=True)` 作为 LLM 工具选择评估入口。
+- 增强 JSONL 读取校验：
+  - 空行会跳过。
+  - JSON 格式错误会提示具体行号。
+  - 缺少 `question` 或 `expected_tool` 会抛出 `ValueError`。
+- 补充评估结果结构：
+  - `mode`
+  - `total_cases`
+  - `correct`
+  - `accuracy`
+  - `failed_cases`
+  - `case_results`
+- 增强测试覆盖，确保 `rule` 模式不调用真实 LLM，`llm` 模式通过 mock 验证，不依赖真实 API Key。
+
+当日核心产出：
+
+- `scripts/evaluate_tool_choice.py`
+- `tests/test_evaluate_tool_choice.py`
+- `README.md`
+
+当日技术点：
+
+- 使用 `argparse` 给脚本增加 CLI 参数。
+- 用 mock / monkeypatch 测试 LLM 分支，避免测试联网或依赖 API Key。
+- 把逐条评估结果保存为结构化 JSON，方便后续比较 rule 和 LLM 的稳定性。
+
+阶段价值：
+
+- V0.3 让项目具备了评估 Agent 工具选择稳定性的基础框架。
+- `rule` 模式可以作为确定性 baseline。
+- `llm` 模式可以作为后续模型效果观察入口，但不会影响默认本地测试稳定性。
