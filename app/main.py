@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.services.agent_service import run_agent
 from app.services.data_profile import analyze_csv, profile_dataframe
 from app.services.report_service import generate_markdown_report
+from app.services.session_store import create_session, get_profile
 
 app = FastAPI(
     title="DataInsight Agent",
@@ -22,7 +23,8 @@ class ChatRequest(BaseModel):
 
 class DataChatRequest(BaseModel):
     question: str
-    profile: dict
+    profile: dict | None = None
+    session_id: str | None = None
     llm_tool_choice_json: str | None = None
 
 
@@ -83,7 +85,7 @@ async def upload_csv_profile(file: UploadFile = File(...)):
             detail="服务器处理 CSV 时发生未知错误",
         ) from exc
 
-    return {
+    response_data = {
         "filename": filename,
         "shape": {
             "rows": profile["rows"],
@@ -97,14 +99,30 @@ async def upload_csv_profile(file: UploadFile = File(...)):
         "categorical_summary": profile["categorical_summary"],
         "preview": profile["preview"],
     }
+    session_id = create_session(dict(response_data))
+    response_data["session_id"] = session_id
+
+    return response_data
 
 
 @app.post("/chat/data")
 def chat_with_data(request: DataChatRequest):
-    # 当前 MVP 不保存会话状态，调用方把 /profile/upload 的结果传回来即可。
+    # 新方式优先使用 session_id，调用方不需要每次把完整 profile 传回来。
+    if request.session_id:
+        profile = get_profile(request.session_id)
+        if profile is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+    elif request.profile:
+        profile = request.profile
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Either session_id or profile is required",
+        )
+
     return run_agent(
         question=request.question,
-        profile=request.profile,
+        profile=profile,
         llm_tool_choice_json=request.llm_tool_choice_json,
     )
 

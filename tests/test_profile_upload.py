@@ -30,6 +30,8 @@ def test_upload_csv_success():
     )
 
     assert data["filename"] == "sample_sales.csv"
+    assert isinstance(data["session_id"], str)
+    assert data["session_id"]
     assert data["shape"] == {"rows": 5, "columns": 5}
     assert data["columns"] == ["date", "product", "region", "sales", "profit"]
     assert data["missing_values"]["sales"] == 1
