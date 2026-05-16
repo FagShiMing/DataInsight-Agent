@@ -2,9 +2,9 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、工具调用轨迹记录、Markdown 报告生成和 pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、工具选择评估集和 pytest 自动化测试。
 
-当前项目不包含前端、数据库、RAG、多 Agent 编排，也没有把 LLM 接入到 Agent 工具选择主流程中。默认的数据问答流程使用规则判断选择工具，目的是让功能稳定、可测试、适合面试讲解。
+当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具；如果请求显式传入 `use_llm_tool_choice=true`，则会尝试使用 LLM 输出工具选择 JSON，并在失败时 fallback 到规则版。
 
 ## 项目背景
 
@@ -56,6 +56,28 @@ DataInsight Agent 把这些固定分析步骤封装成后端接口，并用一�
   - 记录工具调用轨迹
 - Markdown 数据分析报告生成。
 - pytest 自动化测试。
+
+## V0.2 当前能力总结
+
+V0.2 当前已经支持：
+
+- `session_id` 会话缓存：上传 CSV 后返回 `session_id`，后续提问可以复用已生成的 profile。
+- `/chat/data` 基于 `session_id` 提问：请求体可以只传 `question + session_id`。
+- 规则版工具选择：默认使用关键词规则选择工具，保证本地演示和测试稳定。
+- 可选 LLM 工具选择：传入 `use_llm_tool_choice=true` 后，Agent 会尝试让 LLM 输出工具选择 JSON。
+- fallback 兜底：LLM 输出非法 JSON、工具不存在或工具调用失败时，会回退到规则版工具选择。
+- `tool_trace` 调用轨迹：记录工具名、参数、状态、结果摘要、是否 fallback、fallback 原因和 LLM 原始输出。
+- 工具选择评估集：使用 `eval/tool_choice_cases.jsonl` 和 `scripts/evaluate_tool_choice.py` 评估规则版工具选择准确率。
+
+当前规则版工具选择评估结果：
+
+```text
+total_cases: 16
+correct: 16
+accuracy: 1.0000
+```
+
+说明：这个评估集是基础评估，只代表当前 16 条固定样例全部命中规则，不代表真实开放场景下工具选择永远满分。后续需要继续增加更多真实问题表达，并扩展到 LLM 工具选择评估。
 
 当前已有但不作为主要 Agent 流程的能力：
 
