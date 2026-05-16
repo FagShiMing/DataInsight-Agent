@@ -1,8 +1,8 @@
 {
   "mode": "rule",
   "total_cases": 50,
-  "correct": 50,
-  "accuracy": 1.0,
+  "correct": 38,
+  "accuracy": 0.76,
   "category_metrics": {
     "profile_overview": {
       "total": 5,
@@ -11,13 +11,13 @@
     },
     "missing_value": {
       "total": 7,
-      "correct": 7,
-      "accuracy": 1.0
+      "correct": 6,
+      "accuracy": 0.8571
     },
     "ambiguous_intent": {
       "total": 13,
-      "correct": 13,
-      "accuracy": 1.0
+      "correct": 5,
+      "accuracy": 0.3846
     },
     "numeric_summary": {
       "total": 9,
@@ -26,8 +26,8 @@
     },
     "report_generation": {
       "total": 9,
-      "correct": 9,
-      "accuracy": 1.0
+      "correct": 6,
+      "accuracy": 0.6667
     },
     "data_question": {
       "total": 7,
@@ -36,11 +36,128 @@
     }
   },
   "failure_analysis": {
-    "total_failed": 0,
-    "failed_by_category": {},
-    "failed_by_expected_tool": {}
+    "total_failed": 12,
+    "failed_by_category": {
+      "ambiguous_intent": 8,
+      "missing_value": 1,
+      "report_generation": 3
+    },
+    "failed_by_expected_tool": {
+      "missing_value_analysis": 5,
+      "numeric_summary": 3,
+      "generate_report": 4
+    }
   },
-  "failed_cases": [],
+  "failed_cases": [
+    {
+      "id": "case_011",
+      "question": "帮我检查一下数据完整性",
+      "category": "ambiguous_intent",
+      "expected_tool": "missing_value_analysis",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_012",
+      "question": "这个表有没有字段没填全",
+      "category": "ambiguous_intent",
+      "expected_tool": "missing_value_analysis",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_013",
+      "question": "字段质量有什么明显问题",
+      "category": "ambiguous_intent",
+      "expected_tool": "missing_value_analysis",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_014",
+      "question": "数据里有没有空白单元格",
+      "category": "missing_value",
+      "expected_tool": "missing_value_analysis",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_016",
+      "question": "先帮我看看哪些列需要补数据",
+      "category": "ambiguous_intent",
+      "expected_tool": "missing_value_analysis",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_022",
+      "question": "销售额和利润的整体表现怎么样",
+      "category": "ambiguous_intent",
+      "expected_tool": "numeric_summary",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_024",
+      "question": "这些数字列大概是什么范围",
+      "category": "ambiguous_intent",
+      "expected_tool": "numeric_summary",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_026",
+      "question": "有哪些可统计的连续型字段",
+      "category": "ambiguous_intent",
+      "expected_tool": "numeric_summary",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_034",
+      "question": "帮我做一个数据分析总结",
+      "category": "ambiguous_intent",
+      "expected_tool": "generate_report",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_035",
+      "question": "把这份数据整理成汇报材料",
+      "category": "report_generation",
+      "expected_tool": "generate_report",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_037",
+      "question": "输出一份正式的数据复盘",
+      "category": "report_generation",
+      "expected_tool": "generate_report",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    },
+    {
+      "id": "case_038",
+      "question": "我需要一段能直接放进周报的分析内容",
+      "category": "report_generation",
+      "expected_tool": "generate_report",
+      "actual_tool": "answer_data_question",
+      "correct": false,
+      "error": null
+    }
+  ],
   "case_results": [
     {
       "id": "case_001",
@@ -137,8 +254,8 @@
       "question": "帮我检查一下数据完整性",
       "category": "ambiguous_intent",
       "expected_tool": "missing_value_analysis",
-      "actual_tool": "missing_value_analysis",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -146,8 +263,8 @@
       "question": "这个表有没有字段没填全",
       "category": "ambiguous_intent",
       "expected_tool": "missing_value_analysis",
-      "actual_tool": "missing_value_analysis",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -155,8 +272,8 @@
       "question": "字段质量有什么明显问题",
       "category": "ambiguous_intent",
       "expected_tool": "missing_value_analysis",
-      "actual_tool": "missing_value_analysis",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -164,8 +281,8 @@
       "question": "数据里有没有空白单元格",
       "category": "missing_value",
       "expected_tool": "missing_value_analysis",
-      "actual_tool": "missing_value_analysis",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -182,8 +299,8 @@
       "question": "先帮我看看哪些列需要补数据",
       "category": "ambiguous_intent",
       "expected_tool": "missing_value_analysis",
-      "actual_tool": "missing_value_analysis",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -236,8 +353,8 @@
       "question": "销售额和利润的整体表现怎么样",
       "category": "ambiguous_intent",
       "expected_tool": "numeric_summary",
-      "actual_tool": "numeric_summary",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -254,8 +371,8 @@
       "question": "这些数字列大概是什么范围",
       "category": "ambiguous_intent",
       "expected_tool": "numeric_summary",
-      "actual_tool": "numeric_summary",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -272,8 +389,8 @@
       "question": "有哪些可统计的连续型字段",
       "category": "ambiguous_intent",
       "expected_tool": "numeric_summary",
-      "actual_tool": "numeric_summary",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -344,8 +461,8 @@
       "question": "帮我做一个数据分析总结",
       "category": "ambiguous_intent",
       "expected_tool": "generate_report",
-      "actual_tool": "generate_report",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -353,8 +470,8 @@
       "question": "把这份数据整理成汇报材料",
       "category": "report_generation",
       "expected_tool": "generate_report",
-      "actual_tool": "generate_report",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -371,8 +488,8 @@
       "question": "输出一份正式的数据复盘",
       "category": "report_generation",
       "expected_tool": "generate_report",
-      "actual_tool": "generate_report",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {
@@ -380,8 +497,8 @@
       "question": "我需要一段能直接放进周报的分析内容",
       "category": "report_generation",
       "expected_tool": "generate_report",
-      "actual_tool": "generate_report",
-      "correct": true,
+      "actual_tool": "answer_data_question",
+      "correct": false,
       "error": null
     },
     {

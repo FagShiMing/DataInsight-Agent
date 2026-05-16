@@ -1,0 +1,173 @@
+{
+  "before": {
+    "path": "eval/history/v0.5_rule_result.json",
+    "accuracy": 0.76,
+    "correct": 38,
+    "total_cases": 50
+  },
+  "after": {
+    "path": "eval/history/v0.6_rule_result.json",
+    "accuracy": 1.0,
+    "correct": 50,
+    "total_cases": 50
+  },
+  "delta": {
+    "accuracy": 0.24,
+    "correct": 12
+  },
+  "category_delta": {
+    "ambiguous_intent": {
+      "before_total": 13,
+      "after_total": 13,
+      "before_correct": 5,
+      "after_correct": 13,
+      "before_accuracy": 0.3846,
+      "after_accuracy": 1.0,
+      "delta": 0.6154
+    },
+    "data_question": {
+      "before_total": 7,
+      "after_total": 7,
+      "before_correct": 7,
+      "after_correct": 7,
+      "before_accuracy": 1.0,
+      "after_accuracy": 1.0,
+      "delta": 0.0
+    },
+    "missing_value": {
+      "before_total": 7,
+      "after_total": 7,
+      "before_correct": 6,
+      "after_correct": 7,
+      "before_accuracy": 0.8571,
+      "after_accuracy": 1.0,
+      "delta": 0.1429
+    },
+    "numeric_summary": {
+      "before_total": 9,
+      "after_total": 9,
+      "before_correct": 9,
+      "after_correct": 9,
+      "before_accuracy": 1.0,
+      "after_accuracy": 1.0,
+      "delta": 0.0
+    },
+    "profile_overview": {
+      "before_total": 5,
+      "after_total": 5,
+      "before_correct": 5,
+      "after_correct": 5,
+      "before_accuracy": 1.0,
+      "after_accuracy": 1.0,
+      "delta": 0.0
+    },
+    "report_generation": {
+      "before_total": 9,
+      "after_total": 9,
+      "before_correct": 6,
+      "after_correct": 9,
+      "before_accuracy": 0.6667,
+      "after_accuracy": 1.0,
+      "delta": 0.3333
+    }
+  },
+  "improved_cases": [
+    {
+      "id": "case_011",
+      "question": "帮我检查一下数据完整性",
+      "category": "ambiguous_intent",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_012",
+      "question": "这个表有没有字段没填全",
+      "category": "ambiguous_intent",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_013",
+      "question": "字段质量有什么明显问题",
+      "category": "ambiguous_intent",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_014",
+      "question": "数据里有没有空白单元格",
+      "category": "missing_value",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_016",
+      "question": "先帮我看看哪些列需要补数据",
+      "category": "ambiguous_intent",
+      "expected_tool": "missing_value_analysis",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "missing_value_analysis"
+    },
+    {
+      "id": "case_022",
+      "question": "销售额和利润的整体表现怎么样",
+      "category": "ambiguous_intent",
+      "expected_tool": "numeric_summary",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "numeric_summary"
+    },
+    {
+      "id": "case_024",
+      "question": "这些数字列大概是什么范围",
+      "category": "ambiguous_intent",
+      "expected_tool": "numeric_summary",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "numeric_summary"
+    },
+    {
+      "id": "case_026",
+      "question": "有哪些可统计的连续型字段",
+      "category": "ambiguous_intent",
+      "expected_tool": "numeric_summary",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "numeric_summary"
+    },
+    {
+      "id": "case_034",
+      "question": "帮我做一个数据分析总结",
+      "category": "ambiguous_intent",
+      "expected_tool": "generate_report",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "generate_report"
+    },
+    {
+      "id": "case_035",
+      "question": "把这份数据整理成汇报材料",
+      "category": "report_generation",
+      "expected_tool": "generate_report",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "generate_report"
+    },
+    {
+      "id": "case_037",
+      "question": "输出一份正式的数据复盘",
+      "category": "report_generation",
+      "expected_tool": "generate_report",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "generate_report"
+    },
+    {
+      "id": "case_038",
+      "question": "我需要一段能直接放进周报的分析内容",
+      "category": "report_generation",
+      "expected_tool": "generate_report",
+      "before_actual_tool": "answer_data_question",
+      "after_actual_tool": "generate_report"
+    }
+  ],
+  "regressed_cases": []
+}

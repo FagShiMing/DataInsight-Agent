@@ -1,4 +1,4 @@
-from app.services.agent_service import parse_llm_tool_choice, run_agent
+from app.services.agent_service import choose_tool_by_rules, parse_llm_tool_choice, run_agent
 from app.services.tools import (
     TOOL_REGISTRY,
     call_tool,
@@ -105,3 +105,34 @@ def test_parse_llm_tool_choice_requires_arguments_object():
         assert "arguments" in str(exc)
     else:
         raise AssertionError("arguments 不是对象时应该抛出 ValueError")
+
+
+def test_rule_choice_generates_report_for_boss_report_request():
+    choice = choose_tool_by_rules("生成一份可以发给老板看的报告")
+
+    assert choice["tool_name"] == "generate_report"
+
+
+def test_rule_choice_detects_missing_value_request():
+    choice = choose_tool_by_rules("哪些字段缺失比较严重")
+
+    assert choice["tool_name"] == "missing_value_analysis"
+
+
+def test_rule_choice_detects_numeric_summary_request():
+    choice = choose_tool_by_rules("销售额和利润的平均值是多少")
+
+    assert choice["tool_name"] == "numeric_summary"
+
+
+def test_rule_choice_detects_profile_csv_with_local_path():
+    choice = choose_tool_by_rules("帮我看看 data/sample_sales.csv 这个数据整体怎么样")
+
+    assert choice["tool_name"] == "profile_csv"
+    assert choice["arguments"]["file_path"] == "data/sample_sales.csv"
+
+
+def test_rule_choice_keeps_business_question_as_data_question():
+    choice = choose_tool_by_rules("这份数据有什么值得关注的业务问题")
+
+    assert choice["tool_name"] == "answer_data_question"

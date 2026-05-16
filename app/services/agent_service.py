@@ -99,14 +99,69 @@ def choose_tool_by_rules(question: str) -> dict:
     """MVP 先使用规则选工具，保证离线环境也能稳定测试和演示。"""
     question = question.strip()
     csv_path = _extract_csv_path(question)
-    if csv_path and any(keyword in question for keyword in ["读取", "分析", "画像", "加载", "导入"]):
+    if csv_path and any(
+        keyword in question
+        for keyword in ["读取", "分析", "画像", "加载", "导入", "整体", "概览", "结构"]
+    ):
         return {"tool_name": "profile_csv", "arguments": {"file_path": csv_path}}
-    if any(keyword in question for keyword in ["报告", "markdown", "Markdown"]):
+
+    report_keywords = [
+        "报告",
+        "markdown",
+        "Markdown",
+        "发给老板",
+        "汇报",
+        "文档",
+        "结论报告",
+        "分析总结",
+        "数据分析总结",
+        "复盘",
+        "周报",
+    ]
+    if any(keyword in question for keyword in report_keywords):
         return {"tool_name": "generate_report", "arguments": {}}
-    if any(keyword in question for keyword in ["缺失", "空值", "null", "NULL"]):
+
+    missing_keywords = [
+        "缺失",
+        "空值",
+        "null",
+        "NULL",
+        "NaN",
+        "nan",
+        "没填全",
+        "未填",
+        "空白",
+        "补数据",
+        "完整性",
+        "完整率",
+        "字段质量",
+        "缺得多",
+    ]
+    if any(keyword in question for keyword in missing_keywords):
         return {"tool_name": "missing_value_analysis", "arguments": {}}
-    if any(keyword in question for keyword in ["数值", "平均", "最大", "最小", "中位", "标准差", "摘要"]):
+
+    numeric_keywords = [
+        "数值",
+        "平均",
+        "均值",
+        "最大",
+        "最小",
+        "中位",
+        "标准差",
+        "摘要",
+        "销售额",
+        "利润",
+        "年龄",
+        "金额",
+        "收入",
+        "范围",
+        "连续型",
+        "统计一下",
+        "波动",
+    ]
+    if any(keyword in question for keyword in numeric_keywords):
         return {"tool_name": "numeric_summary", "arguments": {}}
+
     return {
         "tool_name": "answer_data_question",
         "arguments": {"question": question},

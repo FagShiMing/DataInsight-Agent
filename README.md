@@ -2,7 +2,7 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、评估版本对比、pytest 自动化测试。
 
 当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具；如果请求显式传入 `use_llm_tool_choice=true`，则会尝试使用 LLM 输出工具选择 JSON，并在失败时 fallback 到规则版。
 
@@ -184,6 +184,49 @@ failed_by_expected_tool:
 
 说明：V0.5 的重点不是立刻把准确率拉满，而是先看清楚失败分布。当前 rule baseline 的主要问题集中在模糊表达，例如“数据完整性”“整体表现”“数据分析总结”“复盘/周报内容”等问题容易被规则分到普通问答。
 
+## V0.6 当前能力总结
+
+V0.6 基于 V0.5 的 `failure_analysis` 优化了 rule 模式工具选择规则，重点处理 `ambiguous_intent` 和 `report_generation` 的失败样例。
+
+优化内容：
+
+- 报告生成规则补充“发给老板、汇报、文档、分析总结、复盘、周报”等表达。
+- 缺失值规则补充“没填全、空白、补数据、完整性、完整率、字段质量”等表达。
+- 数值摘要规则补充“销售额、利润、年龄、金额、收入、范围、连续型、波动”等表达。
+- 本地 CSV 画像规则支持带 `.csv` 路径的问题中出现“整体、概览、结构”等表达。
+
+历史评估结果保存在：
+
+- `eval/history/v0.5_rule_result.json`
+- `eval/history/v0.6_rule_result.json`
+- `eval/history/v0.5_vs_v0.6_rule_compare.json`
+
+V0.5 vs V0.6 rule 结果：
+
+```text
+V0.5: total_cases=50, correct=38, accuracy=0.7600
+V0.6: total_cases=50, correct=50, accuracy=1.0000
+accuracy_delta: +0.2400
+correct_delta: +12
+```
+
+重点 category 变化：
+
+```text
+ambiguous_intent: 0.3846 -> 1.0000, delta=+0.6154
+report_generation: 0.6667 -> 1.0000, delta=+0.3333
+missing_value: 0.8571 -> 1.0000, delta=+0.1429
+```
+
+本次对比结果：
+
+```text
+improved_cases: 12
+regressed_cases: 0
+```
+
+说明：V0.6 没有调用 LLM，只是基于 V0.5 暴露出来的失败分布做规则优化。当前 50 条评估集已全部命中，但这仍然只是当前评估集上的结果，不代表开放问题永远满分。
+
 当前已有但不作为主要 Agent 流程的能力：
 
 - `/chat` 基础 LLM 聊天接口。
@@ -220,13 +263,19 @@ DataInsight-Agent/
 ├── docs/
 │   └── project_review.md
 ├── eval/
+│   ├── history/
+│   │   ├── v0.5_rule_result.json
+│   │   ├── v0.5_vs_v0.6_rule_compare.json
+│   │   └── v0.6_rule_result.json
 │   ├── tool_choice_cases.jsonl
 │   ├── tool_choice_compare_result.json
 │   └── tool_choice_result.json
 ├── scripts/
+│   ├── compare_eval_versions.py
 │   ├── compare_tool_choice_modes.py
 │   └── evaluate_tool_choice.py
 ├── tests/
+│   ├── test_compare_eval_versions.py
 │   ├── test_compare_tool_choice_modes.py
 │   ├── test_data_profile.py
 │   ├── test_evaluate_tool_choice.py
@@ -254,8 +303,10 @@ DataInsight-Agent/
 - `eval/tool_choice_cases.jsonl`：工具选择评估样例。
 - `eval/tool_choice_compare_result.json`：工具选择对比脚本通过 `--output` 生成的 JSON 结果文件。
 - `eval/tool_choice_result.json`：单模式工具选择评估脚本通过 `--output` 生成的 JSON 结果文件。
+- `eval/history/`：保存不同版本的 rule 评估结果和版本对比结果。
 - `scripts/evaluate_tool_choice.py`：工具选择准确率评估脚本，支持 `rule` 和 `llm` 两种模式。
 - `scripts/compare_tool_choice_modes.py`：工具选择模式对比脚本，默认只运行 `rule`，可选运行 `llm`。
+- `scripts/compare_eval_versions.py`：评估版本对比脚本，用于比较优化前后的 JSON 结果。
 
 ## Agent 工具调用流程
 
@@ -616,6 +667,7 @@ python -m pytest
 - 工具选择对比脚本是否能通过 mock 比较 `rule` 和 `llm` 的差异样例。
 - 工具选择对比脚本是否能输出 `category_comparison`。
 - 工具选择对比脚本是否能通过 `--output` 保存 JSON 对比结果。
+- 评估版本对比脚本是否能计算 accuracy delta、category delta、improved cases 和 regressed cases。
 - 上传 CSV 后是否返回 `session_id`。
 - `/chat/data` 是否支持 `question + session_id`。
 - 不存在的 `session_id` 是否返回 404。
@@ -625,7 +677,7 @@ python -m pytest
 当前验证结果：
 
 ```text
-50 passed
+60 passed
 ```
 
 ## 工具选择评估 / Tool Choice Evaluation
@@ -731,6 +783,24 @@ V0.4 新增 rule vs llm 对比脚本。默认只运行 `rule`，不会调用真�
 - 对比结果可以帮助定位 Agent 在什么类型的问题上选错工具，例如“报告生成 vs 普通问答”“缺失值分析 vs 数据问答”“数值摘要 vs 数据问答”。
 - V0.5 的 `category_comparison` 可以进一步对比 rule 和 llm 在每个问题类型上的表现。
 
+V0.6 新增评估版本对比脚本，用于比较规则优化前后的结果：
+
+```bash
+.venv/bin/python scripts/compare_eval_versions.py --before eval/history/v0.5_rule_result.json --after eval/history/v0.6_rule_result.json
+```
+
+查看优化和退化的具体样例：
+
+```bash
+.venv/bin/python scripts/compare_eval_versions.py --before eval/history/v0.5_rule_result.json --after eval/history/v0.6_rule_result.json --verbose
+```
+
+保存版本对比结果：
+
+```bash
+.venv/bin/python scripts/compare_eval_versions.py --before eval/history/v0.5_rule_result.json --after eval/history/v0.6_rule_result.json --output eval/history/v0.5_vs_v0.6_rule_compare.json
+```
+
 ## 示例输入输出
 
 示例文件：
@@ -829,6 +899,7 @@ missing_value_analysis
 - 增加更多数据分析工具，例如异常值检测、相关性分析、分组统计。
 - 继续扩充工具选择评估集，加入更多真实表达、边界问题和容易混淆的问题。
 - 基于 V0.5 的 `failure_analysis` 优先优化 `ambiguous_intent`、`report_generation` 等失败较多的类型。
+- 继续保留历史评估结果，用版本对比脚本观察每次规则或 prompt 修改是否引入退化。
 - 增加报告完整性和异常处理能力评估。
 - 按问题类型细分 rule 和 llm 两种工具选择模式的稳定性。
 - 将当前内存 session_store 升级为 Redis、SQLite 或 PostgreSQL，保存上传记录、工具调用轨迹和报告。
@@ -1216,3 +1287,67 @@ POST /report/generate
 
 - V0.5 可以看出 rule baseline 的弱点主要集中在 `ambiguous_intent`。
 - 后续优化规则、prompt 或工具边界时，可以优先处理失败分布最集中的问题类型。
+
+### 2026-05-17：V0.6 基于失败分析优化规则选择
+
+目标：基于 V0.5 的 `failure_analysis` 优化 rule 模式下的工具选择逻辑，并记录优化前后的指标变化。
+
+完成内容：
+
+- 保存 V0.5 rule baseline：
+
+```text
+eval/history/v0.5_rule_result.json
+```
+
+- 分析 V0.5 的 12 条失败样例：
+  - `ambiguous_intent` 中 8 条失败，主要是“数据完整性、字段质量、整体表现、分析总结”等表达。
+  - `report_generation` 中 3 条失败，主要是“汇报材料、复盘、周报内容”等没有直接出现“报告”的表达。
+  - `missing_value_analysis` 期望工具有 5 条失败，主要是没有命中“缺失/空值”显式关键词。
+  - `numeric_summary` 期望工具有 3 条失败，主要是“销售额/利润整体表现、数字范围、连续型字段”等表达。
+  - `generate_report` 期望工具有 4 条失败，主要是“总结/汇报/复盘/周报”这类报告意图。
+- 优化 `app/services/agent_service.py` 中的 `choose_tool_by_rules()`：
+  - 扩展报告生成关键词。
+  - 扩展缺失值分析关键词。
+  - 扩展数值摘要关键词。
+  - 保持默认不调用 LLM。
+- 新增评估版本对比脚本：
+
+```text
+scripts/compare_eval_versions.py
+```
+
+- 新增 V0.6 结果和对比结果：
+
+```text
+eval/history/v0.6_rule_result.json
+eval/history/v0.5_vs_v0.6_rule_compare.json
+```
+
+- 增强测试：
+  - 覆盖新增版本对比脚本。
+  - 覆盖规则选择的代表性问题。
+
+当日核心产出：
+
+- `app/services/agent_service.py`
+- `scripts/compare_eval_versions.py`
+- `tests/test_compare_eval_versions.py`
+- `tests/test_tools_agent.py`
+- `eval/history/v0.5_rule_result.json`
+- `eval/history/v0.6_rule_result.json`
+- `eval/history/v0.5_vs_v0.6_rule_compare.json`
+- `README.md`
+
+当日技术点：
+
+- 用历史 JSON 结果做版本对比，而不是凭印象判断优化效果。
+- `improved_cases` 表示优化前错误、优化后正确。
+- `regressed_cases` 表示优化前正确、优化后错误。
+- 规则优化要优先解决失败分布最集中的类别，同时检查是否引入退化。
+
+阶段价值：
+
+- V0.6 把 V0.5 的失败分析转化成了可验证的规则优化。
+- 工具选择评估从“发现问题”进一步推进到“量化改进”。
+- 后续每次修改规则或 prompt 都可以复用版本对比脚本验证收益和退化。
