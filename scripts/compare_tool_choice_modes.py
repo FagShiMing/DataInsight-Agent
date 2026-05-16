@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.evaluate_tool_choice import (
     DEFAULT_CASES_PATH,
+    build_category_metrics,
     evaluate_tool_choice,
     load_cases,
     sample_profile,
@@ -22,6 +23,12 @@ def _empty_llm_result(status: str = "skipped", error: str | None = None) -> dict
         "status": status,
         "correct": None,
         "accuracy": None,
+        "category_metrics": {},
+        "failure_analysis": {
+            "total_failed": 0,
+            "failed_by_category": {},
+            "failed_by_expected_tool": {},
+        },
         "failed_cases": [],
         "case_results": [],
     }
@@ -34,6 +41,7 @@ def _comparison_case(rule_case: dict, llm_case: dict) -> dict:
     return {
         "id": rule_case["id"],
         "question": rule_case["question"],
+        "category": rule_case["category"],
         "expected_tool": rule_case["expected_tool"],
         "rule_actual_tool": rule_case.get("actual_tool"),
         "llm_actual_tool": llm_case.get("actual_tool"),
@@ -42,6 +50,12 @@ def _comparison_case(rule_case: dict, llm_case: dict) -> dict:
         "rule_error": rule_case.get("error"),
         "llm_error": llm_case.get("error"),
     }
+
+
+def _metrics_from_result(result: dict) -> dict:
+    if result.get("category_metrics"):
+        return result["category_metrics"]
+    return build_category_metrics(result.get("case_results", []))
 
 
 def compare_results(rule_result: dict, llm_result: dict) -> dict:
@@ -94,6 +108,35 @@ def compare_results(rule_result: dict, llm_result: dict) -> dict:
     }
 
 
+def build_category_comparison(rule_result: dict, llm_result: dict) -> dict:
+    """按 category 对比 rule 和 llm 的工具选择准确率。"""
+    if llm_result.get("status") == "skipped":
+        return {"status": "skipped", "reason": "llm mode was not run"}
+    if llm_result.get("status") == "failed":
+        return {
+            "status": "failed",
+            "reason": llm_result.get("error", "llm mode failed"),
+        }
+
+    rule_metrics = _metrics_from_result(rule_result)
+    llm_metrics = _metrics_from_result(llm_result)
+    categories = sorted(set(rule_metrics) | set(llm_metrics))
+    comparison = {"status": "compared"}
+
+    for category in categories:
+        rule_metric = rule_metrics.get(category, {"total": 0, "correct": 0, "accuracy": 0.0})
+        llm_metric = llm_metrics.get(category, {"total": 0, "correct": 0, "accuracy": 0.0})
+        comparison[category] = {
+            "total": rule_metric["total"],
+            "rule_correct": rule_metric["correct"],
+            "rule_accuracy": rule_metric["accuracy"],
+            "llm_correct": llm_metric["correct"],
+            "llm_accuracy": llm_metric["accuracy"],
+        }
+
+    return comparison
+
+
 def build_comparison_report(cases_path: str | Path, run_llm: bool = False) -> dict:
     """读取同一批 cases，分别生成 rule 和可选 llm 的工具选择对比报告。"""
     cases = load_cases(cases_path)
@@ -116,6 +159,7 @@ def build_comparison_report(cases_path: str | Path, run_llm: bool = False) -> di
         "rule": rule_result,
         "llm": llm_result,
         "comparison": compare_results(rule_result, llm_result),
+        "category_comparison": build_category_comparison(rule_result, llm_result),
     }
 
 
@@ -123,6 +167,7 @@ def _print_summary(report: dict, verbose: bool = False) -> None:
     rule_result = report["rule"]
     llm_result = report["llm"]
     comparison = report["comparison"]
+    category_comparison = report["category_comparison"]
 
     print("Tool choice mode comparison")
     print(f"cases_path: {report['cases_path']}")
@@ -149,6 +194,21 @@ def _print_summary(report: dict, verbose: bool = False) -> None:
     print(f"rule_wrong_llm_correct: {len(comparison['rule_wrong_llm_correct'])}")
     print(f"different_actual_tool: {len(comparison['different_actual_tool'])}")
 
+    print()
+    print("Category comparison")
+    print(f"status: {category_comparison['status']}")
+    if category_comparison["status"] != "compared":
+        print(f"reason: {category_comparison['reason']}")
+    else:
+        for category, metric in category_comparison.items():
+            if category == "status":
+                continue
+            print(
+                f"- {category}: total={metric['total']} "
+                f"rule_accuracy={metric['rule_accuracy']:.4f} "
+                f"llm_accuracy={metric['llm_accuracy']:.4f}"
+            )
+
     if verbose and comparison["status"] == "compared":
         print()
         print("Different actual tool cases:")
@@ -157,6 +217,7 @@ def _print_summary(report: dict, verbose: bool = False) -> None:
         for case in comparison["different_actual_tool"]:
             print(f"- id: {case['id']}")
             print(f"  question: {case['question']}")
+            print(f"  category: {case['category']}")
             print(f"  expected_tool: {case['expected_tool']}")
             print(f"  rule_actual_tool: {case['rule_actual_tool']}")
             print(f"  llm_actual_tool: {case['llm_actual_tool']}")

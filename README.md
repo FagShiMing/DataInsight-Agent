@@ -2,7 +2,7 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、pytest 自动化测试。
 
 当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具；如果请求显式传入 `use_llm_tool_choice=true`，则会尝试使用 LLM 输出工具选择 JSON，并在失败时 fallback 到规则版。
 
@@ -130,6 +130,60 @@ accuracy: 0.7600
 
 说明：V0.4 的评估集故意加入了“数据完整性”“字段质量”“汇报材料”“销售额和利润整体表现”等更接近真实用户的表达，因此 rule 准确率不再追求 100%。这个结果更适合用来定位规则版 Agent 在哪些表达上容易选错工具。
 
+## V0.5 当前能力总结
+
+V0.5 把工具选择评估从“只看总体准确率”升级为“按问题类型看准确率和失败分布”：
+
+- 每条评估 case 新增 `category` 字段。
+- `evaluate_tool_choice.py` 输出新增：
+  - `category_metrics`：按问题类型统计 `total / correct / accuracy`。
+  - `failure_analysis`：统计失败样例集中在哪些 `category` 和 `expected_tool`。
+- `compare_tool_choice_modes.py` 输出新增：
+  - `category_comparison`：当运行 `--run-llm` 时，对比 rule 和 llm 在每个 category 下的准确率。
+  - 不运行 `--run-llm` 时，`category_comparison` 标记为 `skipped`。
+- `case_results` 和 `failed_cases` 中都会保留 `category`，方便定位具体失败样例。
+
+当前 category 类型：
+
+- `profile_overview`
+- `missing_value`
+- `numeric_summary`
+- `report_generation`
+- `data_question`
+- `ambiguous_intent`
+
+当前 V0.5 rule 模式分类评估结果：
+
+```text
+total_cases: 50
+correct: 38
+accuracy: 0.7600
+
+profile_overview: total=5, correct=5, accuracy=1.0000
+missing_value: total=7, correct=6, accuracy=0.8571
+numeric_summary: total=9, correct=9, accuracy=1.0000
+report_generation: total=9, correct=6, accuracy=0.6667
+data_question: total=7, correct=7, accuracy=1.0000
+ambiguous_intent: total=13, correct=5, accuracy=0.3846
+```
+
+当前失败样例分析：
+
+```text
+total_failed: 12
+failed_by_category:
+  ambiguous_intent: 8
+  missing_value: 1
+  report_generation: 3
+
+failed_by_expected_tool:
+  missing_value_analysis: 5
+  numeric_summary: 3
+  generate_report: 4
+```
+
+说明：V0.5 的重点不是立刻把准确率拉满，而是先看清楚失败分布。当前 rule baseline 的主要问题集中在模糊表达，例如“数据完整性”“整体表现”“数据分析总结”“复盘/周报内容”等问题容易被规则分到普通问答。
+
 当前已有但不作为主要 Agent 流程的能力：
 
 - `/chat` 基础 LLM 聊天接口。
@@ -167,7 +221,8 @@ DataInsight-Agent/
 │   └── project_review.md
 ├── eval/
 │   ├── tool_choice_cases.jsonl
-│   └── tool_choice_compare_result.json
+│   ├── tool_choice_compare_result.json
+│   └── tool_choice_result.json
 ├── scripts/
 │   ├── compare_tool_choice_modes.py
 │   └── evaluate_tool_choice.py
@@ -198,6 +253,7 @@ DataInsight-Agent/
 - `docs/project_review.md`：面试复盘材料。
 - `eval/tool_choice_cases.jsonl`：工具选择评估样例。
 - `eval/tool_choice_compare_result.json`：工具选择对比脚本通过 `--output` 生成的 JSON 结果文件。
+- `eval/tool_choice_result.json`：单模式工具选择评估脚本通过 `--output` 生成的 JSON 结果文件。
 - `scripts/evaluate_tool_choice.py`：工具选择准确率评估脚本，支持 `rule` 和 `llm` 两种模式。
 - `scripts/compare_tool_choice_modes.py`：工具选择模式对比脚本，默认只运行 `rule`，可选运行 `llm`。
 
@@ -552,10 +608,13 @@ python -m pytest
 - 工具选择评估脚本是否能正常读取样例并输出结果。
 - 工具选择评估脚本是否支持 `rule` / `llm` 模式。
 - 工具选择评估脚本是否能跳过空行、识别缺字段和 JSON 格式错误。
+- 工具选择评估脚本是否能校验 `category` 字段和非法分类。
+- 工具选择评估脚本是否能输出 `category_metrics` 和 `failure_analysis`。
 - 工具选择评估脚本是否能通过 `--output` 保存 JSON 结果。
 - LLM 工具选择评估是否可以通过 mock 测试，避免真实请求 API。
 - 工具选择对比脚本默认是否只运行 `rule` 模式。
 - 工具选择对比脚本是否能通过 mock 比较 `rule` 和 `llm` 的差异样例。
+- 工具选择对比脚本是否能输出 `category_comparison`。
 - 工具选择对比脚本是否能通过 `--output` 保存 JSON 对比结果。
 - 上传 CSV 后是否返回 `session_id`。
 - `/chat/data` 是否支持 `question + session_id`。
@@ -566,7 +625,7 @@ python -m pytest
 当前验证结果：
 
 ```text
-45 passed
+50 passed
 ```
 
 ## 工具选择评估 / Tool Choice Evaluation
@@ -606,7 +665,20 @@ python scripts/evaluate_tool_choice.py
 - `total_cases`：评估样例总数。
 - `correct`：工具选择正确的样例数。
 - `accuracy`：准确率。
+- `category_metrics`：按问题类型统计准确率。
+- `failure_analysis`：按 category 和 expected_tool 统计失败分布。
 - `failed_cases`：失败样例，包含问题、期望工具、实际工具和错误原因。
+
+V0.5 给每条评估 case 增加了 `category`，用于区分问题类型：
+
+- `profile_overview`
+- `missing_value`
+- `numeric_summary`
+- `report_generation`
+- `data_question`
+- `ambiguous_intent`
+
+现在评估结果不仅能看总体 `accuracy`，也能看每一类问题的 `accuracy`。`failure_analysis` 可以帮助定位失败样例集中在哪些 category 和 expected_tool 上。
 
 查看每条样例结果：
 
@@ -657,6 +729,7 @@ V0.4 新增 rule vs llm 对比脚本。默认只运行 `rule`，不会调用真�
 - `rule` 模式不需要 API Key。
 - `llm` 模式需要智谱 API Key。
 - 对比结果可以帮助定位 Agent 在什么类型的问题上选错工具，例如“报告生成 vs 普通问答”“缺失值分析 vs 数据问答”“数值摘要 vs 数据问答”。
+- V0.5 的 `category_comparison` 可以进一步对比 rule 和 llm 在每个问题类型上的表现。
 
 ## 示例输入输出
 
@@ -755,6 +828,7 @@ missing_value_analysis
 
 - 增加更多数据分析工具，例如异常值检测、相关性分析、分组统计。
 - 继续扩充工具选择评估集，加入更多真实表达、边界问题和容易混淆的问题。
+- 基于 V0.5 的 `failure_analysis` 优先优化 `ambiguous_intent`、`report_generation` 等失败较多的类型。
 - 增加报告完整性和异常处理能力评估。
 - 按问题类型细分 rule 和 llm 两种工具选择模式的稳定性。
 - 将当前内存 session_store 升级为 Redis、SQLite 或 PostgreSQL，保存上传记录、工具调用轨迹和报告。
@@ -1097,3 +1171,48 @@ POST /report/generate
 - V0.4 让项目不仅能“调用工具”，还能评估 Agent 工具选择效果。
 - rule 模式可以作为 baseline，llm 模式可以作为后续模型能力对比入口。
 - 差异样例可以指导下一步优化规则、prompt 或工具边界。
+
+### 2026-05-17：V0.5 工具选择分类评估与失败分析
+
+目标：把工具选择评估从“只看总体准确率”升级为“按问题类型统计准确率，并输出失败样例分析”。
+
+完成内容：
+
+- 给 `eval/tool_choice_cases.jsonl` 的 50 条 case 增加 `category` 字段。
+- 新增固定 category 集合：
+  - `profile_overview`
+  - `missing_value`
+  - `numeric_summary`
+  - `report_generation`
+  - `data_question`
+  - `ambiguous_intent`
+- 增强 `scripts/evaluate_tool_choice.py`：
+  - `load_cases()` 校验 `category` 是否存在、是否为空、是否属于允许值。
+  - `case_results` 和 `failed_cases` 中保留 `category`。
+  - 新增 `category_metrics`。
+  - 新增 `failure_analysis`。
+- 增强 `scripts/compare_tool_choice_modes.py`：
+  - 差异样例中保留 `category`。
+  - 新增 `category_comparison`。
+  - 默认不运行 LLM 时，`category_comparison` 标记为 `skipped`。
+- 扩展测试覆盖，确保分类统计、失败分析、compare 输出和 JSON 输出都可验证。
+
+当日核心产出：
+
+- `eval/tool_choice_cases.jsonl`
+- `scripts/evaluate_tool_choice.py`
+- `scripts/compare_tool_choice_modes.py`
+- `tests/test_evaluate_tool_choice.py`
+- `tests/test_compare_tool_choice_modes.py`
+- `README.md`
+
+当日技术点：
+
+- 评估结果不能只看总分，还需要按问题类型拆开看。
+- 失败分析先用确定性统计完成，不调用 LLM，保证本地可重复。
+- 默认路径继续保持安全：不加 `--run-llm` 时不调用真实 LLM。
+
+阶段价值：
+
+- V0.5 可以看出 rule baseline 的弱点主要集中在 `ambiguous_intent`。
+- 后续优化规则、prompt 或工具边界时，可以优先处理失败分布最集中的问题类型。

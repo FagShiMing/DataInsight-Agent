@@ -13,6 +13,14 @@ from app.services.agent_service import run_agent
 
 DEFAULT_CASES_PATH = PROJECT_ROOT / "eval" / "tool_choice_cases.jsonl"
 VALID_MODES = {"rule", "llm"}
+ALLOWED_CATEGORIES = {
+    "profile_overview",
+    "missing_value",
+    "numeric_summary",
+    "report_generation",
+    "data_question",
+    "ambiguous_intent",
+}
 
 
 def load_cases(path: str | Path = DEFAULT_CASES_PATH) -> list[dict]:
@@ -33,8 +41,16 @@ def load_cases(path: str | Path = DEFAULT_CASES_PATH) -> list[dict]:
                 raise ValueError(f"Line {line_number} must be a JSON object")
             if "question" not in case or "expected_tool" not in case:
                 raise ValueError(f"Line {line_number} missing question or expected_tool")
+            if "category" not in case:
+                raise ValueError(f"Line {line_number} missing category")
             if not case["question"] or not case["expected_tool"]:
                 raise ValueError(f"Line {line_number} question and expected_tool cannot be empty")
+            if not case["category"]:
+                raise ValueError(f"Line {line_number} category cannot be empty")
+            if case["category"] not in ALLOWED_CATEGORIES:
+                raise ValueError(
+                    f"Line {line_number} has invalid category: {case['category']}"
+                )
             cases.append(case)
 
     return cases
@@ -122,6 +138,47 @@ def _trace_error(agent_response: dict, mode: str) -> str | None:
     return None
 
 
+def build_category_metrics(case_results: list[dict]) -> dict:
+    """按问题类型统计工具选择准确率。"""
+    metrics = {}
+    for case_result in case_results:
+        category = case_result["category"]
+        if category not in metrics:
+            metrics[category] = {"total": 0, "correct": 0, "accuracy": 0.0}
+        metrics[category]["total"] += 1
+        if case_result["correct"]:
+            metrics[category]["correct"] += 1
+
+    for metric in metrics.values():
+        metric["accuracy"] = round(
+            metric["correct"] / metric["total"] if metric["total"] else 0.0,
+            4,
+        )
+
+    return metrics
+
+
+def build_failure_analysis(case_results: list[dict]) -> dict:
+    """基于失败样例做轻量统计，不调用 LLM。"""
+    failed_cases = [case for case in case_results if not case["correct"]]
+    failed_by_category = {}
+    failed_by_expected_tool = {}
+
+    for failed_case in failed_cases:
+        category = failed_case["category"]
+        expected_tool = failed_case["expected_tool"]
+        failed_by_category[category] = failed_by_category.get(category, 0) + 1
+        failed_by_expected_tool[expected_tool] = (
+            failed_by_expected_tool.get(expected_tool, 0) + 1
+        )
+
+    return {
+        "total_failed": len(failed_cases),
+        "failed_by_category": failed_by_category,
+        "failed_by_expected_tool": failed_by_expected_tool,
+    }
+
+
 def evaluate_tool_choice(
     cases: list[dict],
     profile: dict,
@@ -159,6 +216,7 @@ def evaluate_tool_choice(
         case_result = {
             "id": _case_id(case, index),
             "question": case["question"],
+            "category": case["category"],
             "expected_tool": expected_tool,
             "actual_tool": actual_tool,
             "correct": is_correct,
@@ -171,12 +229,16 @@ def evaluate_tool_choice(
 
     total_cases = len(cases)
     accuracy = correct / total_cases if total_cases else 0.0
+    category_metrics = build_category_metrics(case_results)
+    failure_analysis = build_failure_analysis(case_results)
 
     return {
         "mode": mode,
         "total_cases": total_cases,
         "correct": correct,
         "accuracy": round(accuracy, 4),
+        "category_metrics": category_metrics,
+        "failure_analysis": failure_analysis,
         "failed_cases": failed_cases,
         "case_results": case_results,
     }
@@ -189,12 +251,29 @@ def _print_result(result: dict, verbose: bool = False) -> None:
     print(f"correct: {result['correct']}")
     print(f"accuracy: {result['accuracy']:.4f}")
 
+    print()
+    print("Category metrics:")
+    for category, metric in result["category_metrics"].items():
+        print(
+            f"- {category}: total={metric['total']} "
+            f"correct={metric['correct']} "
+            f"accuracy={metric['accuracy']:.4f}"
+        )
+
+    failure_analysis = result["failure_analysis"]
+    print()
+    print("Failure analysis:")
+    print(f"total_failed: {failure_analysis['total_failed']}")
+    print(f"failed_by_category: {failure_analysis['failed_by_category']}")
+    print(f"failed_by_expected_tool: {failure_analysis['failed_by_expected_tool']}")
+
     if verbose:
         print()
         print("Case results:")
         for case_result in result["case_results"]:
             print(
                 f"- {case_result['id']} "
+                f"category={case_result['category']} "
                 f"expected={case_result['expected_tool']} "
                 f"actual={case_result['actual_tool']} "
                 f"correct={case_result['correct']}"
@@ -211,6 +290,7 @@ def _print_result(result: dict, verbose: bool = False) -> None:
     for failed_case in result["failed_cases"]:
         print(f"- id: {failed_case['id']}")
         print(f"  question: {failed_case['question']}")
+        print(f"  category: {failed_case['category']}")
         print(f"  expected_tool: {failed_case['expected_tool']}")
         print(f"  actual_tool: {failed_case['actual_tool']}")
         print(f"  error: {failed_case['error']}")
