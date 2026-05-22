@@ -2,9 +2,9 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、hard / regression 评估集、评估版本对比、pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、工具执行后的可选 LLM 最终回答生成、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、hard / regression 评估集、评估版本对比、pytest 自动化测试。
 
-当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具；如果请求显式传入 `use_llm_tool_choice=true`，则会尝试使用 LLM 输出工具选择 JSON，并在失败时 fallback 到规则版。
+当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具，并返回规则版回答；如果请求显式传入 `use_llm_answer=true` 且配置了 `ZHIPUAI_API_KEY`，则会在工具执行完成后调用 GLM-4.7 生成最终自然语言回答，并在失败时 fallback 到规则版。
 
 ## 项目背景
 
@@ -54,6 +54,10 @@ DataInsight Agent 把这些固定分析步骤封装成后端接口，并用一�
   - 根据问题关键词选择工具
   - 调用工具并返回结构化结果
   - 记录工具调用轨迹
+- 可选 LLM 最终回答生成：
+  - 保留规则工具选择和工具执行
+  - 把用户问题、工具名、工具结果和数据画像摘要交给 GLM-4.7
+  - LLM 不可用时自动回退到规则版回答
 - Markdown 数据分析报告生成。
 - pytest 自动化测试。
 
@@ -322,6 +326,34 @@ numeric_vs_business_question: 0.5000 -> 1.0000, delta=+0.5000
 - `/chat` 基础 LLM 聊天接口。
 - 智谱 GLM API Key 从环境变量读取。
 
+## V0.9：LLM 最终回答生成
+
+V0.8 的核心能力是规则版工具选择和规则版数据问答：系统先根据问题选择 `profile_csv`、`missing_value_analysis`、`numeric_summary`、`generate_report` 或 `answer_data_question`，再直接返回工具产生的规则结果。
+
+V0.9 不推翻 V0.8 的工具选择逻辑，而是在工具执行完成之后新增“LLM 最终回答生成”：
+
+- 默认 `/chat/data` 仍然不调用 LLM，方便本地测试、线上稳定演示和评估脚本复用。
+- 请求体传入 `use_llm_answer=true` 后，系统仍然先走原有工具选择和工具执行。
+- 工具执行完成后，系统会把用户问题、工具名称、工具返回结果和数据画像摘要交给 GLM-4.7。
+- 当配置了 `ZHIPUAI_API_KEY` 且 LLM 调用成功时，接口返回的 `answer` 会变成 LLM 生成的自然语言分析回答。
+- 如果没有 API Key 或 LLM 调用失败，接口不会崩溃，会自动 fallback 到原来的规则版回答。
+
+新增返回字段：
+
+- `llm_used`：本次最终回答是否真的来自 LLM。
+- `fallback_reason`：LLM 最终回答失败时的原因，例如 `missing_api_key` 或 `llm_call_failed`。
+
+V0.9 的目标链路：
+
+```text
+用户提问
+-> 根据问题选择工具
+-> 执行工具
+-> 得到结构化工具结果
+-> 可选调用 GLM-4.7 生成最终回答
+-> 返回 answer / result / tool_trace / llm_used / fallback_reason
+```
+
 ## 技术栈
 
 - Python
@@ -422,7 +454,8 @@ DataInsight-Agent/
 -> call_tool(tool_name, arguments)
 -> 工具执行
 -> build_trace(...) 记录调用轨迹
--> 返回 answer / result / tool_trace
+-> 如果 use_llm_answer=true，调用 LLM 生成最终自然语言回答
+-> 返回 answer / result / tool_trace / llm_used / fallback_reason
 ```
 
 规则示例：
@@ -439,6 +472,8 @@ DataInsight-Agent/
 - `status`
 - `result_summary` 或 `error_message`
 - `timestamp`
+
+注意：`use_llm_tool_choice` 负责“是否让 LLM 选择工具”，`use_llm_answer` 负责“是否让 LLM 基于工具结果生成最终回答”。这两个开关互相独立，默认都为 `false`。
 
 ## Session 机制
 
@@ -578,7 +613,8 @@ POST /chat/data
 ```json
 {
   "question": "哪些字段有缺失值？",
-  "session_id": "上传 CSV 后返回的 session_id"
+  "session_id": "上传 CSV 后返回的 session_id",
+  "use_llm_answer": false
 }
 ```
 
@@ -620,6 +656,32 @@ POST /chat/data
 - `tool_name`：Agent 本次选择的工具。
 - `result`：工具执行结果。
 - `tool_trace`：工具调用轨迹。
+- `llm_used`：最终回答是否来自 LLM。
+- `fallback_reason`：LLM 最终回答失败时的原因；没有 fallback 时为 `null`。
+
+可选字段说明：
+
+- `use_llm_tool_choice`：是否让 LLM 选择工具，默认 `false`。
+- `use_llm_answer`：是否在工具执行后调用 LLM 生成最终自然语言回答，默认 `false`。
+
+如果要测试 V0.9 的 LLM 最终回答，可以传：
+
+```json
+{
+  "question": "哪些字段有缺失值？",
+  "session_id": "上传 CSV 后返回的 session_id",
+  "use_llm_answer": true
+}
+```
+
+当 `use_llm_answer=true` 但没有配置 `ZHIPUAI_API_KEY`，或 LLM 调用失败时，接口会返回规则版 `answer`，同时：
+
+```json
+{
+  "llm_used": false,
+  "fallback_reason": "missing_api_key"
+}
+```
 
 错误处理：
 
@@ -689,14 +751,14 @@ pip install -r requirements.txt
 
 ### 2. 配置环境变量
 
-如果需要测试 `/chat` LLM 接口，请在 `.env` 中配置：
+如果需要测试 `/chat` LLM 接口，或 `/chat/data` 中的 `use_llm_answer=true`，请在 `.env` 中配置：
 
 ```text
 ZHIPUAI_API_KEY=your_api_key_here
 ZHIPUAI_MODEL=glm-4.7
 ```
 
-如果只测试 CSV 上传、数据画像、Agent 工具调用和报告生成，不需要配置 LLM API Key。
+如果只测试 CSV 上传、数据画像、规则版 Agent 工具调用和报告生成，不需要配置 LLM API Key。
 
 ### 3. 启动服务
 
@@ -777,12 +839,17 @@ python -m pytest
 - `/chat/data` 是否支持 `question + session_id`。
 - 不存在的 `session_id` 是否返回 404。
 - 旧的 `question + profile` 方式是否仍然可用。
+- `use_llm_answer=false` 时是否保持规则版回答。
+- `use_llm_answer=true` 且 mock LLM 成功时，`answer` 是否来自 mock LLM。
+- `use_llm_answer=true` 但缺少 API Key 时，是否 fallback 到规则版回答。
+- `use_llm_answer=true` 但 LLM 调用异常时，是否 fallback 到规则版回答。
+- `/chat/data` 返回结构是否包含 `llm_used` 和 `fallback_reason`。
 - Markdown 报告是否包含核心章节。
 
 当前验证结果：
 
 ```text
-72 passed
+77 passed
 ```
 
 ## 工具选择评估 / Tool Choice Evaluation
@@ -1035,6 +1102,8 @@ missing_value_analysis
 {
   "answer": "共有 1 个字段存在缺失值，缺失单元格总数为 1。",
   "tool_name": "missing_value_analysis",
+  "llm_used": false,
+  "fallback_reason": null,
   "tool_trace": [
     {
       "tool_name": "missing_value_analysis",
@@ -1049,6 +1118,7 @@ missing_value_analysis
 - 用 pandas 完成确定性数据画像，避免所有分析都依赖 LLM。
 - 用内存 session_id 缓存 profile，让上传和后续问答形成更自然的流程。
 - 使用工具注册表管理 Agent 可调用能力，结构清晰，方便扩展。
+- V0.9 把 LLM 放在工具执行之后生成最终回答，保留确定性工具结果作为依据。
 - Agent 调用过程会记录工具轨迹，便于调试和面试讲解。
 - 不引入 LangChain / LangGraph，代码更轻，适合说明 Tool Calling 原理。
 - pytest 覆盖核心业务逻辑，不需要先启动服务也能验证主要功能。
@@ -1072,8 +1142,8 @@ missing_value_analysis
 - 当前 session_store 使用内存字典，服务重启后 session 会丢失。
 - 多进程或多实例部署时，内存 session 不共享。
 - 当前 session 没有过期时间，也没有持久化。
-- 默认 Agent 工具选择是规则判断，不是真正的 LLM 自主规划。
-- `/chat` 依赖外部 LLM API 和环境变量。
+- 默认 Agent 工具选择和最终回答都是规则版；只有显式开启 `use_llm_tool_choice` 或 `use_llm_answer` 才会调用 LLM。
+- `/chat` 和 `/chat/data` 的 LLM 最终回答依赖外部 LLM API 和环境变量。
 - 当前没有数据库、前端、RAG 和 Docker。
 
 ## 每日开发记录
@@ -1671,3 +1741,53 @@ numeric_vs_business_question: 0.5000 -> 1.0000, delta=+0.5000
 
 - V0.8 把 V0.7 暴露出来的 hard 失败分布转化为可验证的规则优化。
 - base 和 regression 均保持 1.0000，说明本轮优化没有拉低已有稳定能力。
+
+### 2026-05-22：V0.9 LLM 最终回答生成
+
+目标：在 V0.8 规则版工具选择和规则版数据问答基础上，新增“工具执行后的 LLM 最终回答生成”，同时保持默认路径稳定、不真实依赖 LLM。
+
+完成内容：
+
+- 保留 V0.8 已有规则工具选择逻辑。
+- 新增 `generate_llm_answer()`：
+  - 接收用户问题、工具名称、工具结果和数据画像摘要。
+  - 调用 GLM-4.7 生成中文自然语言分析回答。
+  - Prompt 明确要求只能基于工具结果回答，不能编造字段、数值、趋势或业务背景。
+- `/chat/data` 请求体新增：
+  - `use_llm_answer`
+- `/chat/data` 返回结构新增：
+  - `llm_used`
+  - `fallback_reason`
+- 当 `use_llm_answer=false` 时，继续保持 V0.8 规则版回答。
+- 当 `use_llm_answer=true` 且配置了 `ZHIPUAI_API_KEY` 时，工具执行后会调用 GLM-4.7 生成最终回答。
+- 当缺少 API Key 或 LLM 调用失败时，自动 fallback 到规则版回答，接口不崩溃。
+- 调整 `llm_service.py`，改为调用时检查 API Key，避免导入模块时就依赖真实 Key。
+- 新增测试覆盖 LLM 最终回答成功、缺 Key fallback、调用异常 fallback 和返回字段。
+
+当日核心产出：
+
+- `app/services/llm_service.py`
+- `app/services/agent_service.py`
+- `app/main.py`
+- `tests/test_llm_answer.py`
+- `tests/test_session_chat.py`
+- `README.md`
+
+当日技术点：
+
+- `use_llm_tool_choice` 和 `use_llm_answer` 是两个独立开关：
+  - 前者决定是否让 LLM 选择工具。
+  - 后者决定是否让 LLM 基于工具结果生成最终回答。
+- 默认路径不调用 LLM，保证本地测试和演示稳定。
+- 测试中使用 monkeypatch/mock 替代真实 LLM 调用，不消耗 API Key。
+
+验证结果：
+
+```text
+77 passed
+```
+
+阶段价值：
+
+- V0.9 已经具备“基于 LLM 的数据问答”核心链路：工具先给出可靠结构化结果，LLM 再负责把结果组织成中文分析回答。
+- fallback 机制保证 LLM 不可用时仍能使用 V0.8 的规则版能力。

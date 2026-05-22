@@ -78,6 +78,7 @@ def test_chat_data_defaults_to_rule_tool_choice(monkeypatch):
         delete_session(session_id)
 
     assert received["use_llm_tool_choice"] is False
+    assert received["use_llm_answer"] is False
 
 
 def test_chat_data_can_enable_llm_tool_choice(monkeypatch):
@@ -112,6 +113,7 @@ def test_chat_data_can_enable_llm_tool_choice(monkeypatch):
         delete_session(session_id)
 
     assert received["use_llm_tool_choice"] is True
+    assert received["use_llm_answer"] is False
     assert response["tool_trace"][0]["tool_choice_source"] == "llm"
 
 

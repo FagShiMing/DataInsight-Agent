@@ -408,11 +408,14 @@ def run_agent(
     profile: dict | None = None,
     llm_tool_choice_json: str | None = None,
     use_llm_tool_choice: bool = False,
+    use_llm_answer: bool = False,
 ) -> dict:
     """执行一次轻量 Agent 调用：选择工具、补齐参数、调用工具、记录轨迹。"""
     if not question or not question.strip():
         return {
             "answer": "问题不能为空。",
+            "llm_used": False,
+            "fallback_reason": None,
             "tool_trace": [
                 build_trace(
                     tool_name="unknown",
@@ -451,6 +454,8 @@ def run_agent(
     except ValueError as exc:
         return {
             "answer": str(exc),
+            "llm_used": False,
+            "fallback_reason": None,
             "tool_trace": [
                 build_trace(
                     tool_name="unknown",
@@ -485,6 +490,8 @@ def run_agent(
                 error_message = f"工具执行失败: {fallback_exc}"
                 return {
                     "answer": error_message,
+                    "llm_used": False,
+                    "fallback_reason": None,
                     "tool_trace": [
                         build_trace(
                             tool_choice["tool_name"],
@@ -502,6 +509,8 @@ def run_agent(
             error_message = f"工具参数错误: {exc}"
             return {
                 "answer": error_message,
+                "llm_used": False,
+                "fallback_reason": None,
                 "tool_trace": [
                     build_trace(
                         tool_choice["tool_name"],
@@ -531,6 +540,8 @@ def run_agent(
                 error_message = f"工具执行失败: {fallback_exc}"
                 return {
                     "answer": error_message,
+                    "llm_used": False,
+                    "fallback_reason": None,
                     "tool_trace": [
                         build_trace(
                             tool_choice["tool_name"],
@@ -548,6 +559,8 @@ def run_agent(
             error_message = f"工具执行失败: {exc}"
             return {
                 "answer": error_message,
+                "llm_used": False,
+                "fallback_reason": None,
                 "tool_trace": [
                     build_trace(
                         tool_choice["tool_name"],
@@ -562,11 +575,38 @@ def run_agent(
                 ],
             }
 
-    answer = result.get("answer") or result.get("summary") or "工具调用完成。"
+    rule_answer = result.get("answer") or result.get("summary") or "工具调用完成。"
+    answer = rule_answer
+    llm_used = False
+    llm_answer_fallback_reason = None
+
+    if use_llm_answer:
+        try:
+            from app.services.llm_service import generate_llm_answer
+
+            answer = generate_llm_answer(
+                question=question,
+                selected_tool=tool_name,
+                tool_result=result,
+                profile_summary=_profile_summary(profile),
+            )
+            llm_used = True
+        except RuntimeError as exc:
+            if str(exc) == "missing_api_key":
+                llm_answer_fallback_reason = "missing_api_key"
+            else:
+                llm_answer_fallback_reason = "llm_call_failed"
+            answer = rule_answer
+        except Exception:
+            llm_answer_fallback_reason = "llm_call_failed"
+            answer = rule_answer
+
     return {
         "answer": answer,
         "tool_name": tool_name,
         "result": result,
+        "llm_used": llm_used,
+        "fallback_reason": llm_answer_fallback_reason,
         "tool_trace": [
             build_trace(
                 tool_name,
