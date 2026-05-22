@@ -1,0 +1,10 @@
+{"id": "blind_001", "question": "先别生成报告，我只是想看看缺失值情况。", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "blind_negation_turn"}
+{"id": "blind_002", "question": "先帮我看一下整体情况，再说说哪些列缺失比较严重。", "expected_tool": "missing_value_analysis", "category": "ambiguous_intent", "subcategory": "blind_multi_intent"}
+{"id": "blind_003", "question": "这个数据最值得关注的问题是什么？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "blind_business_question"}
+{"id": "blind_004", "question": "这份表有啥异常吗？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "blind_ambiguous_question"}
+{"id": "blind_005", "question": "你觉得今天适合旅游吗？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "blind_unrelated_question"}
+{"id": "blind_006", "question": "我不是要你写正式分析报告，只是想快速了解数值列的大概分布。", "expected_tool": "numeric_summary", "category": "ambiguous_intent", "subcategory": "blind_negation_numeric"}
+{"id": "blind_007", "question": "哪些数值字段的波动比较大？", "expected_tool": "numeric_summary", "category": "numeric_summary", "subcategory": "blind_numeric_volatility"}
+{"id": "blind_008", "question": "帮我找出缺失最严重的字段。", "expected_tool": "missing_value_analysis", "category": "missing_value", "subcategory": "blind_missing_severity"}
+{"id": "blind_009", "question": "请基于这份 CSV 生成一份正式分析报告。", "expected_tool": "generate_report", "category": "report_generation", "subcategory": "blind_report_request"}
+{"id": "blind_010", "question": "这个数据集里哪个字段最值得优先分析？", "expected_tool": "answer_data_question", "category": "data_question", "subcategory": "blind_priority_question"}

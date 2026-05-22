@@ -3,17 +3,28 @@ from pathlib import Path
 
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.core.config import CORS_ORIGINS
 from app.services.agent_service import run_agent
 from app.services.data_profile import analyze_csv, profile_dataframe
 from app.services.report_service import generate_markdown_report
 from app.services.session_store import create_session, get_profile
+from app.services.suggestion_service import generate_analysis_suggestions
 
 app = FastAPI(
     title="DataInsight Agent",
     description="A lightweight CSV data analysis Agent.",
-    version="0.1.0",
+    version="1.0.0-rc1",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -28,6 +39,11 @@ class DataChatRequest(BaseModel):
     llm_tool_choice_json: str | None = None
     use_llm_tool_choice: bool = False
     use_llm_answer: bool = False
+
+
+class AnalysisSuggestionsRequest(BaseModel):
+    profile: dict | None = None
+    session_id: str | None = None
 
 
 class ReportGenerateRequest(BaseModel):
@@ -129,6 +145,18 @@ def chat_with_data(request: DataChatRequest):
         use_llm_tool_choice=request.use_llm_tool_choice,
         use_llm_answer=request.use_llm_answer,
     )
+
+
+@app.post("/analysis/suggestions")
+def analysis_suggestions(request: AnalysisSuggestionsRequest):
+    if request.session_id:
+        profile = get_profile(request.session_id)
+        if profile is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+    else:
+        profile = request.profile
+
+    return generate_analysis_suggestions(profile)
 
 
 @app.post("/report/generate")

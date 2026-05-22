@@ -414,6 +414,8 @@ def run_agent(
     if not question or not question.strip():
         return {
             "answer": "问题不能为空。",
+            "selected_tool": None,
+            "tool_result": None,
             "llm_used": False,
             "fallback_reason": None,
             "tool_trace": [
@@ -454,6 +456,8 @@ def run_agent(
     except ValueError as exc:
         return {
             "answer": str(exc),
+            "selected_tool": None,
+            "tool_result": None,
             "llm_used": False,
             "fallback_reason": None,
             "tool_trace": [
@@ -490,6 +494,8 @@ def run_agent(
                 error_message = f"工具执行失败: {fallback_exc}"
                 return {
                     "answer": error_message,
+                    "selected_tool": tool_choice["tool_name"],
+                    "tool_result": None,
                     "llm_used": False,
                     "fallback_reason": None,
                     "tool_trace": [
@@ -509,6 +515,8 @@ def run_agent(
             error_message = f"工具参数错误: {exc}"
             return {
                 "answer": error_message,
+                "selected_tool": tool_choice["tool_name"],
+                "tool_result": None,
                 "llm_used": False,
                 "fallback_reason": None,
                 "tool_trace": [
@@ -540,6 +548,8 @@ def run_agent(
                 error_message = f"工具执行失败: {fallback_exc}"
                 return {
                     "answer": error_message,
+                    "selected_tool": tool_choice["tool_name"],
+                    "tool_result": None,
                     "llm_used": False,
                     "fallback_reason": None,
                     "tool_trace": [
@@ -559,6 +569,8 @@ def run_agent(
             error_message = f"工具执行失败: {exc}"
             return {
                 "answer": error_message,
+                "selected_tool": tool_choice["tool_name"],
+                "tool_result": None,
                 "llm_used": False,
                 "fallback_reason": None,
                 "tool_trace": [
@@ -605,6 +617,8 @@ def run_agent(
         "answer": answer,
         "tool_name": tool_name,
         "result": result,
+        "selected_tool": tool_name,
+        "tool_result": result,
         "llm_used": llm_used,
         "fallback_reason": llm_answer_fallback_reason,
         "tool_trace": [

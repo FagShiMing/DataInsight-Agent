@@ -48,6 +48,8 @@ def test_chat_data_with_session_id_uses_cached_profile():
         delete_session(session_id)
 
     assert response["tool_name"] == "missing_value_analysis"
+    assert response["selected_tool"] == "missing_value_analysis"
+    assert response["tool_result"] == response["result"]
     assert "answer" in response
     assert response["tool_trace"][0]["status"] == "success"
 
@@ -147,6 +149,8 @@ def test_chat_data_still_accepts_profile_directly():
         delete_session(session_id)
 
     assert response["tool_name"] == "missing_value_analysis"
+    assert response["selected_tool"] == "missing_value_analysis"
+    assert "tool_result" in response
     assert response["tool_trace"][0]["status"] == "success"
 
 

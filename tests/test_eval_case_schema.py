@@ -13,6 +13,7 @@ EVAL_FILES = [
     Path("eval/tool_choice_cases.jsonl"),
     Path("eval/tool_choice_hard_cases.jsonl"),
     Path("eval/tool_choice_regression_cases.jsonl"),
+    Path("eval/tool_choice_blind_cases.jsonl"),
 ]
 
 
@@ -60,3 +61,11 @@ def test_regression_cases_keep_rule_accuracy_at_one():
 
     assert result["accuracy"] == 1.0
     assert result["failed_cases"] == []
+
+
+def test_blind_cases_can_run_rule_evaluation():
+    cases = load_cases("eval/tool_choice_blind_cases.jsonl")
+    result = evaluate_tool_choice(cases, sample_profile(), mode="rule")
+
+    assert result["total_cases"] == 10
+    assert "failure_analysis" in result

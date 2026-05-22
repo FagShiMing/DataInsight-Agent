@@ -1,0 +1,194 @@
+{
+  "mode": "rule",
+  "total_cases": 10,
+  "correct": 10,
+  "accuracy": 1.0,
+  "category_metrics": {
+    "ambiguous_intent": {
+      "total": 3,
+      "correct": 3,
+      "accuracy": 1.0
+    },
+    "data_question": {
+      "total": 4,
+      "correct": 4,
+      "accuracy": 1.0
+    },
+    "numeric_summary": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "missing_value": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "report_generation": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    }
+  },
+  "subcategory_metrics": {
+    "blind_negation_turn": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_multi_intent": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_business_question": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_ambiguous_question": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_unrelated_question": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_negation_numeric": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_numeric_volatility": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_missing_severity": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_report_request": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "blind_priority_question": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    }
+  },
+  "failure_analysis": {
+    "total_failed": 0,
+    "failed_by_category": {},
+    "failed_by_subcategory": {},
+    "failed_by_expected_tool": {}
+  },
+  "failed_cases": [],
+  "case_results": [
+    {
+      "id": "blind_001",
+      "question": "先别生成报告，我只是想看看缺失值情况。",
+      "category": "ambiguous_intent",
+      "subcategory": "blind_negation_turn",
+      "expected_tool": "missing_value_analysis",
+      "actual_tool": "missing_value_analysis",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_002",
+      "question": "先帮我看一下整体情况，再说说哪些列缺失比较严重。",
+      "category": "ambiguous_intent",
+      "subcategory": "blind_multi_intent",
+      "expected_tool": "missing_value_analysis",
+      "actual_tool": "missing_value_analysis",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_003",
+      "question": "这个数据最值得关注的问题是什么？",
+      "category": "data_question",
+      "subcategory": "blind_business_question",
+      "expected_tool": "answer_data_question",
+      "actual_tool": "answer_data_question",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_004",
+      "question": "这份表有啥异常吗？",
+      "category": "data_question",
+      "subcategory": "blind_ambiguous_question",
+      "expected_tool": "answer_data_question",
+      "actual_tool": "answer_data_question",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_005",
+      "question": "你觉得今天适合旅游吗？",
+      "category": "data_question",
+      "subcategory": "blind_unrelated_question",
+      "expected_tool": "answer_data_question",
+      "actual_tool": "answer_data_question",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_006",
+      "question": "我不是要你写正式分析报告，只是想快速了解数值列的大概分布。",
+      "category": "ambiguous_intent",
+      "subcategory": "blind_negation_numeric",
+      "expected_tool": "numeric_summary",
+      "actual_tool": "numeric_summary",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_007",
+      "question": "哪些数值字段的波动比较大？",
+      "category": "numeric_summary",
+      "subcategory": "blind_numeric_volatility",
+      "expected_tool": "numeric_summary",
+      "actual_tool": "numeric_summary",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_008",
+      "question": "帮我找出缺失最严重的字段。",
+      "category": "missing_value",
+      "subcategory": "blind_missing_severity",
+      "expected_tool": "missing_value_analysis",
+      "actual_tool": "missing_value_analysis",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_009",
+      "question": "请基于这份 CSV 生成一份正式分析报告。",
+      "category": "report_generation",
+      "subcategory": "blind_report_request",
+      "expected_tool": "generate_report",
+      "actual_tool": "generate_report",
+      "correct": true,
+      "error": null
+    },
+    {
+      "id": "blind_010",
+      "question": "这个数据集里哪个字段最值得优先分析？",
+      "category": "data_question",
+      "subcategory": "blind_priority_question",
+      "expected_tool": "answer_data_question",
+      "actual_tool": "answer_data_question",
+      "correct": true,
+      "error": null
+    }
+  ]
+}

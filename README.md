@@ -2,9 +2,9 @@
 
 DataInsight Agent 是一个面向 CSV 文件的轻量级数据分析 Agent 后端项目。
 
-项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、工具执行后的可选 LLM 最终回答生成、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、hard / regression 评估集、评估版本对比、pytest 自动化测试。
+项目当前已经实现：CSV 上传、基础数据画像、session_id 内存会话缓存、规则版分析建议、缺失值分析、数值列摘要、规则版工具选择、可选 LLM 工具选择、工具执行后的可选 LLM 最终回答生成、fallback 兜底、工具调用轨迹记录、Markdown 报告生成、Vite + React + TypeScript 最小前端演示页、规则版和可选 LLM 工具选择评估、rule vs llm 工具选择对比评估、按问题类型统计工具选择准确率、hard / regression / blind 评估集、评估版本对比、pytest 自动化测试。
 
-当前项目不包含前端、数据库、RAG、多 Agent 编排。默认的数据问答流程使用规则判断选择工具，并返回规则版回答；如果请求显式传入 `use_llm_answer=true` 且配置了 `ZHIPUAI_API_KEY`，则会在工具执行完成后调用 GLM-4.7 生成最终自然语言回答，并在失败时 fallback 到规则版。
+当前项目是本地可演示版本，不包含数据库、RAG、多 Agent 编排和登录系统。默认的数据问答流程使用规则判断选择工具，并返回规则版回答；如果请求显式传入 `use_llm_answer=true` 且配置了 `ZHIPUAI_API_KEY`，则会在工具执行完成后调用 GLM-4.7 生成最终自然语言回答，并在失败时 fallback 到规则版。
 
 ## 项目背景
 
@@ -58,7 +58,17 @@ DataInsight Agent 把这些固定分析步骤封装成后端接口，并用一�
   - 保留规则工具选择和工具执行
   - 把用户问题、工具名、工具结果和数据画像摘要交给 GLM-4.7
   - LLM 不可用时自动回退到规则版回答
+- 规则版分析建议：
+  - 基于行列数、字段、缺失值和数值列摘要生成建议
+  - 不依赖 LLM 和 API Key
 - Markdown 数据分析报告生成。
+- 最小前端演示页：
+  - 健康检查
+  - CSV 上传
+  - 数据画像展示
+  - 分析建议
+  - 数据问答
+  - Markdown 报告生成
 - pytest 自动化测试。
 
 ## V0.2 当前能力总结
@@ -354,6 +364,42 @@ V0.9 的目标链路：
 -> 返回 answer / result / tool_trace / llm_used / fallback_reason
 ```
 
+## V1.0.0-RC1：最小可演示版本
+
+V1.0.0-RC1 的目标是把后端 Agent 能力整理成一个可以本地演示的完整闭环，而不是一次性做复杂产品。
+
+本版本新增：
+
+- FastAPI CORS 配置，支持 Vite 本地前端访问。
+- `POST /analysis/suggestions`，基于数据画像生成规则版分析建议。
+- `/chat/data` 新增前端友好兼容字段：
+  - `selected_tool`
+  - `tool_result`
+- 新增 `frontend/`：
+  - Vite
+  - React
+  - TypeScript
+- 前端支持完整演示流程：
+  - 检查后端连接
+  - 上传 CSV
+  - 查看数据画像
+  - 生成分析建议
+  - 提交数据问题
+  - 查看工具选择、工具轨迹和最终回答
+  - 生成并复制 Markdown 报告
+- 新增 blind hard cases，用于验证规则选择没有只贴合旧评估集。
+
+当前 V1.0.0-RC1 仍是本地演示版，没有线上部署、数据库、用户系统或持久化历史记录。
+
+V1.0.0-RC1 评估结果：
+
+```text
+base: total_cases=50, correct=50, accuracy=1.0000
+hard: total_cases=32, correct=32, accuracy=1.0000
+regression: total_cases=15, correct=15, accuracy=1.0000
+blind: total_cases=10, correct=10, accuracy=1.0000
+```
+
 ## 技术栈
 
 - Python
@@ -363,6 +409,9 @@ V0.9 的目标链路：
 - pytest
 - python-dotenv
 - 智谱 GLM-4.7 SDK
+- Vite
+- React
+- TypeScript
 
 ## 项目结构
 
@@ -379,6 +428,7 @@ DataInsight-Agent/
 │       ├── llm_service.py
 │       ├── report_service.py
 │       ├── session_store.py
+│       ├── suggestion_service.py
 │       └── tools.py
 ├── data/
 │   └── sample_sales.csv
@@ -386,12 +436,14 @@ DataInsight-Agent/
 │   └── project_review.md
 ├── eval/
 │   ├── history/
+│   │   ├── v1.0.0_blind_rule_result.json
 │   │   ├── v0.5_rule_result.json
 │   │   ├── v0.5_vs_v0.6_rule_compare.json
 │   │   ├── v0.6_rule_result.json
 │   │   ├── v0.7_base_rule_result.json
 │   │   ├── v0.7_hard_rule_result.json
 │   │   └── v0.7_regression_rule_result.json
+│   ├── tool_choice_blind_cases.jsonl
 │   ├── tool_choice_cases.jsonl
 │   ├── tool_choice_compare_result.json
 │   ├── tool_choice_hard_cases.jsonl
@@ -402,6 +454,7 @@ DataInsight-Agent/
 │   ├── compare_tool_choice_modes.py
 │   └── evaluate_tool_choice.py
 ├── tests/
+│   ├── test_analysis_suggestions.py
 │   ├── test_compare_eval_versions.py
 │   ├── test_compare_tool_choice_modes.py
 │   ├── test_data_profile.py
@@ -412,6 +465,16 @@ DataInsight-Agent/
 │   ├── test_report_service.py
 │   ├── test_session_chat.py
 │   └── test_tools_agent.py
+├── frontend/
+│   ├── src/
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── vite-env.d.ts
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
 ├── pytest.ini
 ├── requirements.txt
 └── README.md
@@ -425,12 +488,15 @@ DataInsight-Agent/
 - `app/services/agent_service.py`：规则版 Agent 调度、工具调用和轨迹记录。
 - `app/services/report_service.py`：Markdown 报告生成。
 - `app/services/session_store.py`：内存版 session_id 缓存，用于保存上传 CSV 后生成的 profile。
+- `app/services/suggestion_service.py`：规则版分析建议生成。
 - `app/services/llm_service.py`：智谱 LLM 调用封装。
+- `frontend/`：Vite + React + TypeScript 最小前端演示页。
 - `tests/`：pytest 测试。
 - `docs/project_review.md`：面试复盘材料。
 - `eval/tool_choice_cases.jsonl`：工具选择评估样例。
 - `eval/tool_choice_hard_cases.jsonl`：更难、更开放、更口语化的工具选择评估样例。
 - `eval/tool_choice_regression_cases.jsonl`：防止规则优化退化的核心回归样例。
+- `eval/tool_choice_blind_cases.jsonl`：V1.0.0-RC1 新增 blind cases，用于检查规则是否过拟合旧样例。
 - `eval/tool_choice_compare_result.json`：工具选择对比脚本通过 `--output` 生成的 JSON 结果文件。
 - `eval/tool_choice_result.json`：单模式工具选择评估脚本通过 `--output` 生成的 JSON 结果文件。
 - `eval/history/`：保存不同版本的 rule 评估结果和版本对比结果。
@@ -600,6 +666,31 @@ multipart/form-data
 - `categorical_summary`：类别列摘要。
 - `preview`：前 5 行数据预览。
 
+### 生成分析建议
+
+```http
+POST /analysis/suggestions
+```
+
+作用：基于已有数据画像生成规则版分析建议，不依赖 LLM 和 API Key。
+
+请求示例：
+
+```json
+{
+  "session_id": "上传 CSV 后返回的 session_id"
+}
+```
+
+也兼容直接传 `profile`。
+
+返回字段：
+
+- `success`：是否成功生成建议。
+- `suggestions`：建议列表。
+- `summary`：基于画像整理的简短摘要。
+- `source`：当前为 `rule`。
+
 ### 围绕数据提问
 
 ```http
@@ -655,6 +746,8 @@ POST /chat/data
 - `answer`：面向用户的回答。
 - `tool_name`：Agent 本次选择的工具。
 - `result`：工具执行结果。
+- `selected_tool`：前端友好字段，等价于 `tool_name`。
+- `tool_result`：前端友好字段，等价于 `result`。
 - `tool_trace`：工具调用轨迹。
 - `llm_used`：最终回答是否来自 LLM。
 - `fallback_reason`：LLM 最终回答失败时的原因；没有 fallback 时为 `null`。
@@ -756,9 +849,17 @@ pip install -r requirements.txt
 ```text
 ZHIPUAI_API_KEY=your_api_key_here
 ZHIPUAI_MODEL=glm-4.7
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
 如果只测试 CSV 上传、数据画像、规则版 Agent 工具调用和报告生成，不需要配置 LLM API Key。
+
+`CORS_ORIGINS` 用于允许本地前端访问后端。默认已支持 Vite 常用地址：
+
+```text
+http://localhost:5173
+http://127.0.0.1:5173
+```
 
 ### 3. 启动服务
 
@@ -782,6 +883,62 @@ http://127.0.0.1:8000/docs
 
 ```bash
 .venv/bin/uvicorn app.main:app --reload --port 8010
+```
+
+## 前端本地运行方式
+
+前端目录：
+
+```text
+frontend/
+```
+
+安装依赖：
+
+```bash
+cd frontend
+npm install
+```
+
+启动前端：
+
+```bash
+npm run dev
+```
+
+默认访问地址：
+
+```text
+http://localhost:5173
+```
+
+前端环境变量：
+
+```text
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+如果后端不是 8000 端口，请在 `frontend/.env` 中修改 `VITE_API_BASE_URL`。不要在前端环境变量中写入 LLM API Key。
+
+前端构建：
+
+```bash
+npm run build
+```
+
+## 示例 CSV 使用流程
+
+本地演示推荐流程：
+
+```text
+1. 启动后端：.venv/bin/uvicorn app.main:app --reload
+2. 启动前端：cd frontend && npm run dev
+3. 打开 http://localhost:5173
+4. 上传 data/sample_sales.csv
+5. 查看数据画像和分析建议
+6. 在数据问答中提问：哪些字段有缺失值？
+7. 查看 selected_tool、tool_trace、answer 和 tool_result
+8. 生成 Markdown 分析报告
 ```
 
 ## 测试方式
@@ -844,12 +1001,15 @@ python -m pytest
 - `use_llm_answer=true` 但缺少 API Key 时，是否 fallback 到规则版回答。
 - `use_llm_answer=true` 但 LLM 调用异常时，是否 fallback 到规则版回答。
 - `/chat/data` 返回结构是否包含 `llm_used` 和 `fallback_reason`。
+- `/chat/data` 是否返回前端友好的 `selected_tool` 和 `tool_result`。
+- `/analysis/suggestions` 是否能在没有 API Key 时返回规则版建议。
+- blind cases 是否符合评估 schema 并可运行 rule 评估。
 - Markdown 报告是否包含核心章节。
 
 当前验证结果：
 
 ```text
-77 passed
+81 passed
 ```
 
 ## 工具选择评估 / Tool Choice Evaluation
@@ -949,6 +1109,12 @@ regression cases：
 .venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_regression_cases.jsonl
 ```
 
+blind cases：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_blind_cases.jsonl
+```
+
 保存 V0.7 评估结果：
 
 ```bash
@@ -963,6 +1129,12 @@ regression cases：
 .venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_cases.jsonl --output eval/history/v0.8_base_rule_result.json
 .venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_hard_cases.jsonl --output eval/history/v0.8_hard_rule_result.json
 .venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_regression_cases.jsonl --output eval/history/v0.8_regression_rule_result.json
+```
+
+保存 V1.0.0-RC1 blind 评估结果：
+
+```bash
+.venv/bin/python scripts/evaluate_tool_choice.py --mode rule --cases eval/tool_choice_blind_cases.jsonl --output eval/history/v1.0.0_blind_rule_result.json
 ```
 
 V0.4 新增 rule vs llm 对比脚本。默认只运行 `rule`，不会调用真实 LLM：
@@ -1119,6 +1291,7 @@ missing_value_analysis
 - 用内存 session_id 缓存 profile，让上传和后续问答形成更自然的流程。
 - 使用工具注册表管理 Agent 可调用能力，结构清晰，方便扩展。
 - V0.9 把 LLM 放在工具执行之后生成最终回答，保留确定性工具结果作为依据。
+- V1.0.0-RC1 提供前后端本地演示闭环，便于面试官直接查看项目效果。
 - Agent 调用过程会记录工具轨迹，便于调试和面试讲解。
 - 不引入 LangChain / LangGraph，代码更轻，适合说明 Tool Calling 原理。
 - pytest 覆盖核心业务逻辑，不需要先启动服务也能验证主要功能。
@@ -1134,7 +1307,7 @@ missing_value_analysis
 - 增加报告完整性和异常处理能力评估。
 - 按问题类型细分 rule 和 llm 两种工具选择模式的稳定性。
 - 将当前内存 session_store 升级为 Redis、SQLite 或 PostgreSQL，保存上传记录、工具调用轨迹和报告。
-- 增加极简前端或 Streamlit 页面，方便非技术用户演示。
+- 增强前端体验，例如更完整的表格预览、报告下载和错误定位。
 - 对 `/chat` LLM 调用增加 mock 测试，避免测试依赖真实外部 API。
 
 ## 当前限制
@@ -1144,7 +1317,8 @@ missing_value_analysis
 - 当前 session 没有过期时间，也没有持久化。
 - 默认 Agent 工具选择和最终回答都是规则版；只有显式开启 `use_llm_tool_choice` 或 `use_llm_answer` 才会调用 LLM。
 - `/chat` 和 `/chat/data` 的 LLM 最终回答依赖外部 LLM API 和环境变量。
-- 当前没有数据库、前端、RAG 和 Docker。
+- 当前前端是最小本地演示页，不包含复杂交互、登录或线上部署。
+- 当前没有数据库、RAG 和 Docker。
 
 ## 每日开发记录
 
@@ -1791,3 +1965,62 @@ numeric_vs_business_question: 0.5000 -> 1.0000, delta=+0.5000
 
 - V0.9 已经具备“基于 LLM 的数据问答”核心链路：工具先给出可靠结构化结果，LLM 再负责把结果组织成中文分析回答。
 - fallback 机制保证 LLM 不可用时仍能使用 V0.8 的规则版能力。
+
+### 2026-05-22：V1.0.0-RC1 最小前端演示闭环
+
+目标：把 V0.9 后端能力整理成可以本地运行、前端演示、自动化测试和面试讲解的最小完整版本。
+
+完成内容：
+
+- 后端新增 CORS 配置，支持 Vite 本地前端访问。
+- 新增规则版分析建议接口：
+
+```http
+POST /analysis/suggestions
+```
+
+- `/chat/data` 在保留旧字段基础上新增前端友好字段：
+  - `selected_tool`
+  - `tool_result`
+- 新增 `frontend/` 最小前端：
+  - 健康检查
+  - CSV 上传
+  - 数据画像展示
+  - 分析建议
+  - 数据问答
+  - Markdown 报告生成和复制
+- 新增 blind hard cases：
+
+```text
+eval/tool_choice_blind_cases.jsonl
+```
+
+- 保存 blind 评估结果：
+
+```text
+eval/history/v1.0.0_blind_rule_result.json
+```
+
+当日核心产出：
+
+- `app/main.py`
+- `app/core/config.py`
+- `app/services/suggestion_service.py`
+- `frontend/`
+- `tests/test_analysis_suggestions.py`
+- `eval/tool_choice_blind_cases.jsonl`
+- `eval/history/v1.0.0_blind_rule_result.json`
+- `README.md`
+
+验证结果：
+
+```text
+pytest: 81 passed
+frontend build: passed
+blind: 10/10, accuracy=1.0000
+```
+
+阶段价值：
+
+- 项目从“后端能力完整”推进到“前后端可演示闭环”。
+- 默认路径仍不依赖 LLM，便于本地和面试现场稳定展示。
