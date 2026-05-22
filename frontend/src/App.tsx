@@ -61,7 +61,7 @@ function App() {
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [suggestionError, setSuggestionError] = useState("");
   const [question, setQuestion] = useState("哪些字段有缺失值？");
-  const [useLlmAnswer, setUseLlmAnswer] = useState(false);
+  const [useLlmAnswer, setUseLlmAnswer] = useState<boolean>(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const [chatResult, setChatResult] = useState<AnyRecord | null>(null);
@@ -324,7 +324,7 @@ function App() {
             checked={useLlmAnswer}
             onChange={(event) => setUseLlmAnswer(event.target.checked)}
           />
-          使用 LLM 最终回答（默认关闭）
+          启用 LLM 润色回答（可选）
         </label>
         <button onClick={handleChat} disabled={!profile || chatLoading}>
           {chatLoading ? "Agent 正在选择工具并分析数据..." : "提交问题"}
